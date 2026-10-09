@@ -16,6 +16,7 @@ import {
   Loader2,
   ScissorsSquare,
   CreditCard,
+  LifeBuoy,
   ShieldCheck,
 } from 'lucide-react';
 import { supabase, DEMO_TENANT_ID } from '../lib/supabase';
@@ -30,6 +31,7 @@ import FinanceTab from '../admin/FinanceTab';
 import CrmTab from '../admin/CrmTab';
 import { StockTab, ClubTab } from '../admin/ExtrasTabs';
 import EditorTab from '../admin/EditorTab';
+import SupportTab from '../admin/SupportTab';
 import SubscriptionTab, { isPanelBlocked } from '../admin/SubscriptionTab';
 
 const TABS = [
@@ -44,6 +46,7 @@ const TABS = [
   { key: 'club', label: 'Clube', icon: Repeat },
   { key: 'editor', label: 'Editor de Vídeo', icon: Clapperboard },
   { key: 'subscription', label: 'Assinatura', icon: CreditCard },
+  { key: 'support', label: 'Suporte', icon: LifeBuoy },
 ] as const;
 
 type TabKey = (typeof TABS)[number]['key'];
@@ -240,6 +243,7 @@ export default function Admin() {
           {tab === 'club' && <ClubTab tenant={tenant} />}
           {tab === 'editor' && <EditorTab tenant={tenant} />}
           {tab === 'subscription' && <SubscriptionTab sub={sub} onRefresh={loadSub} />}
+          {tab === 'support' && <SupportTab tenantId={tenantId} />}
         </main>
       </div>
     </div>

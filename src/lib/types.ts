@@ -193,3 +193,20 @@ export const CATEGORY_ICONS: Record<string, string> = {
   oficina: '🔧',
   consultorio: '🩻',
 };
+
+export type SupportTicket = {
+  id: string;
+  tenant_id: string;
+  subject: string;
+  status: 'open' | 'answered' | 'closed';
+  created_at: string;
+  updated_at: string;
+};
+
+export type SupportMessage = {
+  id: string;
+  ticket_id: string;
+  author_role: 'client' | 'admin';
+  body: string;
+  created_at: string;
+};
