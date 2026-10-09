@@ -10,6 +10,7 @@ import {
   Contact,
   Package,
   Repeat,
+  Clapperboard,
   ExternalLink,
   LogOut,
   Loader2,
@@ -26,6 +27,7 @@ import BrandingTab from '../admin/BrandingTab';
 import FinanceTab from '../admin/FinanceTab';
 import CrmTab from '../admin/CrmTab';
 import { StockTab, ClubTab } from '../admin/ExtrasTabs';
+import EditorTab from '../admin/EditorTab';
 
 const TABS = [
   { key: 'agenda', label: 'Agenda', icon: CalendarDays },
@@ -37,6 +39,7 @@ const TABS = [
   { key: 'crm', label: 'Clientes', icon: Contact },
   { key: 'stock', label: 'Estoque', icon: Package },
   { key: 'club', label: 'Clube', icon: Repeat },
+  { key: 'editor', label: 'Editor de Vídeo', icon: Clapperboard },
 ] as const;
 
 type TabKey = (typeof TABS)[number]['key'];
@@ -176,6 +179,7 @@ export default function Admin() {
           {tab === 'crm' && <CrmTab tenant={tenant} />}
           {tab === 'stock' && <StockTab />}
           {tab === 'club' && <ClubTab />}
+          {tab === 'editor' && <EditorTab tenant={tenant} />}
         </main>
       </div>
     </div>
