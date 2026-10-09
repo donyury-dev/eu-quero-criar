@@ -52,7 +52,7 @@ declare
   v_prod public.products;
   v_sale public.product_sales;
 begin
-  select * into v_prod from public.products where id = p_product_id;
+  select * into v_prod from public.products where id = p_product_id for update;
   if v_prod.id is null then
     raise exception 'Produto não encontrado.';
   end if;

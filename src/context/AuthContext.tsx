@@ -38,9 +38,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .from('profiles')
       .select('*')
       .eq('user_id', session.user.id)
-      .maybeSingle()
       .then(({ data }) => {
-        if (!cancelled) setProfile(data);
+        if (cancelled || !data || data.length === 0) return;
+        // Se o usuário tem vínculo com a demo e com um estabelecimento real,
+        // o estabelecimento real tem prioridade.
+        const real = data.find((p) => p.tenant_id && p.tenant_id !== DEMO_TENANT_ID);
+        setProfile(real ?? data[0]);
       });
     return () => {
       cancelled = true;

@@ -19,9 +19,25 @@ alter table public.app_admins enable row level security;
 create policy "admins read own" on public.app_admins for select using (false);
 grant select on public.app_admins to service_role;
 
+-- Criada antes da RPC de cadastro, que insere o trial de 7 dias.
+create table if not exists public.subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null unique references public.tenants(id) on delete cascade,
+  provider text not null default 'mercopago',
+  provider_sub_id text,
+  plan text not null default 'mensal',
+  price_cents int not null default 4990,
+  status text not null default 'trialing'
+    check (status in ('trialing','active','past_due','suspended','cancelled')),
+  trial_ends_at timestamptz,
+  current_period_end timestamptz,
+  updated_at timestamptz not null default now()
+);
+
 create or replace function public.is_superadmin()
 returns boolean
 language sql
+security definer
 stable
 set search_path = public
 as $$
@@ -67,9 +83,12 @@ begin
     raise exception 'Informe o nome do estabelecimento.';
   end if;
 
-  -- Usuário só pode ter um estabelecimento
-  select tenant_id into v_existing from public.profiles
-    where user_id = v_user and tenant_id is not null limit 1;
+  -- Usuário só pode ter um estabelecimento real (ignora o vínculo com a demonstração)
+  select p.tenant_id into v_existing from public.profiles p
+    where p.user_id = v_user
+      and p.tenant_id is not null
+      and p.tenant_id <> '00000000-0000-0000-0000-000000000001'
+    limit 1;
   if v_existing is not null then
     raise exception 'Você já possui um estabelecimento vinculado à sua conta.';
   end if;
@@ -79,7 +98,7 @@ begin
   v_base := trim(both '-' from v_base);
   if v_base = '' or v_base is null then v_base := 'estabelecimento'; end if;
   v_slug := v_base;
-  while exists (select 1 from public.tenants where slug = v_slug) loop
+  while exists (select 1 from public.tenants t where t.slug = v_slug) loop
     v_i := v_i + 1;
     v_slug := v_base || '-' || v_i;
   end loop;
@@ -110,48 +129,35 @@ begin
     (v_tenant, 6, '09:00', '15:00', null, null, false),
     (v_tenant, 0, '09:00', '19:00', null, null, true);
 
-  -- Serviços de exemplo por categoria
-  with s(name, duration, price, color, ord) as (
-    values
-      case p_category
-        when 'barbearia' then ('Corte Masculino', 40, 4000, '#6366f1', 0)::text[]
-        when 'salao' then ('Corte Feminino', 60, 8000, '#ec4899', 0)::text[]
-        when 'estetica' then ('Limpeza de Pele', 60, 12000, '#10b981', 0)::text[]
-        when 'academia' then ('Aula Experimental', 60, 0, '#f97316', 0)::text[]
-        when 'clinica' then ('Consulta', 30, 15000, '#0ea5e9', 0)::text[]
-        when 'petshop' then ('Banho e Tosa', 60, 7000, '#84cc16', 0)::text[]
-        when 'spa' then ('Massagem Relaxante', 60, 15000, '#14b8a6', 0)::text[]
-        when 'oficina' then ('Revisão', 60, 12000, '#64748b', 0)::text[]
-        when 'consultorio' then ('Consulta', 30, 20000, '#6366f1', 0)::text[]
-        else ('Atendimento', 30, 5000, '#6366f1', 0)::text[]
-      end,
-      case p_category
-        when 'barbearia' then ('Barba', 30, 2500, '#8b5cf6', 1)::text[]
-        when 'salao' then ('Escova', 40, 5000, '#f97316', 1)::text[]
-        when 'estetica' then ('Massagem Modeladora', 50, 14000, '#14b8a6', 1)::text[]
-        when 'academia' then ('Avaliação Física', 30, 8000, '#0ea5e9', 1)::text[]
-        when 'clinica' then ('Retorno', 20, 8000, '#64748b', 1)::text[]
-        when 'petshop' then ('Consulta Veterinária', 30, 12000, '#0ea5e9', 1)::text[]
-        when 'spa' then ('Drenagem Linfática', 50, 12000, '#10b981', 1)::text[]
-        when 'oficina' then ('Troca de Óleo', 30, 9000, '#f59e0b', 1)::text[]
-        when 'consultorio' then ('Avaliação', 40, 25000, '#10b981', 1)::text[]
-        else ('Retorno', 20, 3000, '#8b5cf6', 1)::text[]
-      end,
-      case p_category
-        when 'barbearia' then ('Corte + Barba', 60, 6500, '#10b981', 2)::text[]
-        when 'salao' then ('Coloração', 120, 18000, '#6366f1', 2)::text[]
-        when 'estetica' then ('Peeling', 60, 20000, '#0ea5e9', 2)::text[]
-        when 'academia' then ('Personal Trainer', 60, 10000, '#ec4899', 2)::text[]
-        when 'clinica' then ('Exame', 40, 25000, '#14b8a6', 2)::text[]
-        when 'petshop' then ('Tosa Higiênica', 40, 5000, '#f97316', 2)::text[]
-        when 'spa' then ('Day Spa', 120, 30000, '#8b5cf6', 2)::text[]
-        when 'oficina' then ('Alinhamento', 60, 15000, '#0ea5e9', 2)::text[]
-        when 'consultorio' then ('Procedimento', 60, 40000, '#f97316', 2)::text[]
-        else ('Atendimento Completo', 60, 10000, '#10b981', 2)::text[]
-      end
-  )
+  -- Serviços iniciais são sugestões editáveis pelo dono, não um catálogo fixo.
   insert into public.services (tenant_id, name, duration_min, price_cents, color, sort_order)
-  select v_tenant, name, duration::int, price::int, color, ord::int from s;
+  values
+    (v_tenant, case p_category
+      when 'barbearia' then 'Corte Masculino'
+      when 'salao' then 'Corte Feminino'
+      when 'estetica' then 'Limpeza de Pele'
+      when 'academia' then 'Aula Experimental'
+      when 'clinica' then 'Consulta'
+      when 'petshop' then 'Banho e Tosa'
+      when 'spa' then 'Massagem Relaxante'
+      when 'oficina' then 'Revisão'
+      when 'consultorio' then 'Consulta'
+      else 'Atendimento' end, 40, 5000, '#6366f1', 0),
+    (v_tenant, case p_category
+      when 'barbearia' then 'Barba'
+      when 'salao' then 'Escova'
+      when 'estetica' then 'Massagem Modeladora'
+      when 'academia' then 'Avaliação Física'
+      when 'petshop' then 'Tosa Higiênica'
+      when 'spa' then 'Drenagem Linfática'
+      when 'oficina' then 'Troca de Óleo'
+      else 'Retorno' end, 30, 3500, '#8b5cf6', 1),
+    (v_tenant, case p_category
+      when 'barbearia' then 'Corte + Barba'
+      when 'salao' then 'Coloração'
+      when 'academia' then 'Personal Trainer'
+      when 'spa' then 'Day Spa'
+      else 'Atendimento Completo' end, 60, 8000, '#10b981', 2);
 
   -- Assinatura: 7 dias de teste grátis
   insert into public.subscriptions (tenant_id, status, trial_ends_at, current_period_end)

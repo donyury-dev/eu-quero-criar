@@ -1,18 +1,5 @@
--- 008: Assinaturas (Mercado Pago) — trial de 7 dias + cobrança mensal
-
-create table if not exists public.subscriptions (
-  id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null unique references public.tenants(id) on delete cascade,
-  provider text not null default 'mercopago',
-  provider_sub_id text,
-  plan text not null default 'mensal',
-  price_cents int not null default 4990,
-  status text not null default 'trialing'
-    check (status in ('trialing','active','past_due','suspended','cancelled')),
-  trial_ends_at timestamptz,
-  current_period_end timestamptz,
-  updated_at timestamptz not null default now()
-);
+-- 008: Assinaturas (Mercado Pago) — políticas e status do trial
+-- A tabela é criada em 007, antes da função de cadastro.
 
 alter table public.subscriptions enable row level security;
 
@@ -23,7 +10,7 @@ create policy "superadmin read subscriptions" on public.subscriptions for select
 create policy "superadmin update subscriptions" on public.subscriptions for update
   using (public.is_superadmin()) with check (public.is_superadmin());
 
-grant select on public.subscriptions to authenticated;
+grant select, update on public.subscriptions to authenticated;
 -- A Edge Function (webhook do Mercado Pago) atualiza via service_role, que ignora RLS.
 
 create or replace function public.effective_subscription_status(s public.subscriptions)
@@ -49,7 +36,7 @@ as $$
     where s.tenant_id = p_tenant
       and public.effective_subscription_status(s) in ('trialing','active')
   )
-  or exists (select 1 from public.app_admins);
+  or public.is_superadmin();
 $$;
 
 comment on function public.is_subscription_active(uuid) is
