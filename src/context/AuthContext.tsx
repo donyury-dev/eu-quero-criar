@@ -1,22 +1,13 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
-import { createVerdentAuth } from '@verdent/auth-js';
 import { supabase, DEMO_TENANT_ID } from '../lib/supabase';
 import type { Profile } from '../lib/types';
-
-const auth = createVerdentAuth({
-  supabase,
-  ...(import.meta.env.VITE_VERDENT_OAUTH_INITIATE_URL
-    ? { oauth: { authorizeUrl: import.meta.env.VITE_VERDENT_OAUTH_INITIATE_URL as string } }
-    : {}),
-});
 
 type AuthState = {
   session: Session | null;
   user: User | null;
   profile: Profile | null;
   loading: boolean;
-  openSignIn: () => void;
   signOut: () => Promise<void>;
   linkAsDemoOwner: () => Promise<{ error: string | null }>;
 };
@@ -61,7 +52,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: session?.user ?? null,
     profile,
     loading,
-    openSignIn: () => auth.openSignInModal(),
     signOut: async () => {
       await supabase.auth.signOut();
       setProfile(null);
