@@ -1,0 +1,85 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html,body { width:1080px; height:1350px; overflow:hidden; }
+body {
+  font-family:'Segoe UI Black','Segoe UI',Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.post { width:1080px; height:1350px; position:relative; display:flex; flex-direction:column; padding:70px 80px 60px; }
+.post.dark { background:radial-gradient(1200px 800px at 85% -10%, #16304f 0%, #0a0c12 55%); color:#fff; }
+.post.light { background:#f4f7fb; color:#0a0c12; }
+.post.blue { background:linear-gradient(160deg, #1e6ff0 0%, #0b3d91 100%); color:#fff; }
+
+.top { display:flex; align-items:center; justify-content:space-between; height:110px; flex:none; }
+.logo-card { background:#fff; border-radius:28px; padding:14px 26px; box-shadow:0 12px 40px rgba(0,0,0,.18); display:flex; align-items:center; }
+.logo-card img { height:82px; display:block; }
+.tag { font-family:'Segoe UI',Arial; font-weight:700; font-size:26px; letter-spacing:3px; text-transform:uppercase; padding:14px 28px; border-radius:999px; }
+.dark .tag { color:#1e6ff0; border:3px solid rgba(30,111,240,.55); }
+.light .tag { color:#0b3d91; background:#e5eeff; }
+.blue .tag { color:#fff; border:3px solid rgba(255,255,255,.6); }
+
+.mid { flex:1; display:flex; flex-direction:column; justify-content:center; position:relative; min-height:0; }
+.kicker { font-family:'Segoe UI',Arial; font-weight:700; font-size:34px; letter-spacing:5px; text-transform:uppercase; color:#1e6ff0; margin-bottom:28px; }
+.blue .kicker, .dark .kicker.bluek { color:#7db2ff; }
+h1 { font-size:104px; font-weight:900; line-height:1.0; letter-spacing:-2px; }
+h1 .hl { color:#1e6ff0; }
+.blue h1 .hl, .dark h1 .hl.bluehl { color:#7db2ff; }
+.sub { font-family:'Segoe UI',Arial; font-weight:400; font-size:38px; line-height:1.35; margin-top:34px; }
+.dark .sub, .blue .sub { color:rgba(255,255,255,.78); }
+.light .sub { color:#5b6472; }
+
+.bot { flex:none; display:flex; align-items:center; justify-content:space-between; border-top:2px solid rgba(120,140,170,.35); padding-top:34px; }
+.handle { font-family:'Segoe UI',Arial; font-weight:700; font-size:32px; letter-spacing:1px; }
+.cta { font-family:'Segoe UI',Arial; font-weight:700; font-size:30px; background:#1e6ff0; color:#fff; padding:20px 42px; border-radius:999px; }
+.light .cta { background:#1e6ff0; }
+.blue .cta { background:#fff; color:#0b3d91; }
+.dark .cta { background:#1e6ff0; }
+
+.swoosh { position:absolute; pointer-events:none; }
+
+/* phone mockup */
+.phone { width:430px; border-radius:54px; background:#10131b; padding:20px; box-shadow:0 40px 90px rgba(10,20,60,.45); flex:none; }
+.phone-screen { border-radius:38px; overflow:hidden; background:#f6f8fc; height:840px; display:flex; flex-direction:column; }
+.p-head { background:#0a0c12; color:#fff; padding:26px 28px 30px; }
+.p-head .ph-name { font-size:26px; font-weight:900; }
+.p-head .ph-sub { font-family:'Segoe UI'; font-size:17px; color:#8ea6c8; margin-top:4px; }
+.p-body { padding:20px; display:flex; flex-direction:column; gap:14px; flex:1; }
+.p-card { background:#fff; border-radius:22px; padding:18px 20px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 4px 14px rgba(15,30,60,.07); }
+.p-time { font-size:22px; font-weight:900; color:#1e6ff0; }
+.p-name { font-family:'Segoe UI'; font-size:19px; font-weight:700; color:#0a0c12; }
+.p-svc { font-family:'Segoe UI'; font-size:15px; color:#5b6472; }
+.p-ok { font-family:'Segoe UI'; font-weight:700; font-size:14px; color:#0e9f6e; background:#e2f7ee; padding:6px 12px; border-radius:999px; }
+.p-toast { background:#1e6ff0; color:#fff; border-radius:22px; padding:18px 20px; font-family:'Segoe UI'; font-weight:700; font-size:18px; box-shadow:0 10px 30px rgba(30,111,240,.4); }
+
+.split { display:flex; align-items:center; gap:60px; }
+.split .txt { flex:1; min-width:0; }
+
+.bigstat { font-size:300px; font-weight:900; line-height:.9; color:#1e6ff0; letter-spacing:-8px; }
+.bigstat small { font-size:130px; letter-spacing:-2px; }
+
+.check-row { display:flex; align-items:flex-start; gap:24px; margin-top:30px; }
+.check-ic { width:64px; height:64px; border-radius:20px; background:#1e6ff0; color:#fff; display:flex; align-items:center; justify-content:center; font-size:36px; flex:none; }
+.check-tx { font-size:44px; font-weight:900; line-height:1.15; padding-top:6px; }
+.check-tx span { display:block; font-family:'Segoe UI'; font-weight:400; font-size:28px; color:#5b6472; margin-top:6px; }
+.dark .check-tx span { color:rgba(255,255,255,.65); }
+
+.step-row { display:flex; gap:36px; margin-top:60px; }
+.step { flex:1; background:#fff; border-radius:32px; padding:40px 34px; box-shadow:0 14px 40px rgba(15,30,60,.08); }
+.step .n { width:70px; height:70px; border-radius:999px; background:#1e6ff0; color:#fff; font-size:38px; display:flex; align-items:center; justify-content:center; }
+.step .t { font-size:34px; font-weight:900; margin-top:26px; line-height:1.1; }
+.step .d { font-family:'Segoe UI'; font-size:24px; color:#5b6472; margin-top:12px; line-height:1.3; }
+
+.aud-emoji { font-size:190px; line-height:1; margin-bottom:40px; }
+.q { font-size:96px; font-weight:900; line-height:1.03; letter-spacing:-2px; }
+</style></head>
+<body><div class="post dark">
+  <div class="top">
+    <div class="logo-card"><img src="../assets/logo.png"></div>
+    <div class="tag">Tatuagem</div>
+  </div>
+  <div class="mid"><div class="aud-emoji">🖤</div><h1>Feito para <span class="hl">estúdios de tatuagem</span>.</h1><p class="sub">Sessões longas, sinal agendado e agenda do artista separada por especialidade.</p></div>
+  <div class="bot">
+    <span class="handle">@kalbixagenda</span>
+    <span class="cta">Meu estúdio</span>
+  </div>
+</div></body></html>
