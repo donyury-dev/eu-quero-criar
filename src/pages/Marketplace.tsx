@@ -39,7 +39,7 @@ export default function Marketplace() {
         <div className="max-w-3xl mx-auto px-4 pt-8 pb-6">
           <div className="flex items-center justify-between">
             <p className="text-lg font-extrabold tracking-tight">
-              Agenda<span className="brand-text">Pro</span>
+              Kal<span className="brand-text">Bix</span> Agenda
             </p>
             <Link to="/entrar" className="flex items-center gap-1.5 text-sm bg-white/10 hover:bg-white/20 transition rounded-lg px-3 py-2">
               <LogIn size={15} /> Área do dono

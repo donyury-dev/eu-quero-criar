@@ -1,6 +1,6 @@
 {
-  "name": "AgendaPro — Agendamento Online",
-  "short_name": "AgendaPro",
+  "name": "KalBix Agenda — Agendamento Online",
+  "short_name": "KalBix Agenda",
   "description": "Agendamento online para barbearias, salões e estúdios.",
   "start_url": "/",
   "display": "standalone",
