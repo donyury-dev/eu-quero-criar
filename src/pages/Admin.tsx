@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import {
   CalendarDays,
@@ -15,10 +15,12 @@ import {
   LogOut,
   Loader2,
   ScissorsSquare,
+  CreditCard,
+  ShieldCheck,
 } from 'lucide-react';
 import { supabase, DEMO_TENANT_ID } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import type { Tenant } from '../lib/types';
+import { effectiveSubStatus, type Subscription, type Tenant } from '../lib/types';
 import AgendaTab from '../admin/AgendaTab';
 import ServicesTab from '../admin/ServicesTab';
 import TeamTab from '../admin/TeamTab';
@@ -28,6 +30,7 @@ import FinanceTab from '../admin/FinanceTab';
 import CrmTab from '../admin/CrmTab';
 import { StockTab, ClubTab } from '../admin/ExtrasTabs';
 import EditorTab from '../admin/EditorTab';
+import SubscriptionTab, { isPanelBlocked } from '../admin/SubscriptionTab';
 
 const TABS = [
   { key: 'agenda', label: 'Agenda', icon: CalendarDays },
@@ -40,6 +43,7 @@ const TABS = [
   { key: 'stock', label: 'Estoque', icon: Package },
   { key: 'club', label: 'Clube', icon: Repeat },
   { key: 'editor', label: 'Editor de Vídeo', icon: Clapperboard },
+  { key: 'subscription', label: 'Assinatura', icon: CreditCard },
 ] as const;
 
 type TabKey = (typeof TABS)[number]['key'];
@@ -48,10 +52,14 @@ export default function Admin() {
   const { user, profile, loading, signOut } = useAuth();
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [tab, setTab] = useState<TabKey>('agenda');
+  const [sub, setSub] = useState<Subscription | null>(null);
+  const [subLoaded, setSubLoaded] = useState(false);
 
   const tenantId = profile?.tenant_id ?? DEMO_TENANT_ID;
+  const isSuper = profile?.role === 'superadmin';
+  const isDemo = tenantId === DEMO_TENANT_ID;
 
-  useEffect(() => {
+  const loadTenant = useCallback(() => {
     supabase
       .from('tenants')
       .select('*')
@@ -59,6 +67,26 @@ export default function Admin() {
       .maybeSingle()
       .then(({ data }) => setTenant(data));
   }, [tenantId]);
+
+  const loadSub = useCallback(() => {
+    supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+      .then(({ data }) => {
+        setSub((data as Subscription) ?? null);
+        setSubLoaded(true);
+      });
+  }, []);
+
+  useEffect(() => {
+    loadTenant();
+    loadSub();
+  }, [loadTenant, loadSub]);
+
+  // Bloqueio: painel só quando a assinatura está ok (demo nunca bloqueia)
+  const panelBlocked = !isDemo && subLoaded && (tenant?.is_blocked || isPanelBlocked(sub));
 
   if (loading)
     return (
@@ -88,6 +116,26 @@ export default function Admin() {
       </div>
     );
 
+  if (panelBlocked)
+    return (
+      <div className="min-h-screen bg-slate-100">
+        <header className="brand-bg text-white">
+          <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
+            <ScissorsSquare size={20} className="brand-text shrink-0" />
+            <p className="font-bold text-sm flex-1">{tenant.name}</p>
+            <button onClick={signOut} className="text-xs text-white/70 hover:text-white flex items-center gap-1.5">
+              <LogOut size={14} /> Sair
+            </button>
+          </div>
+        </header>
+        <div className="max-w-5xl mx-auto px-4 py-6">
+          <SubscriptionTab sub={sub} onRefresh={loadSub} blocking />
+        </div>
+      </div>
+    );
+
+  const subStatus = isDemo ? 'active' : sub ? effectiveSubStatus(sub) : 'trialing';
+
   return (
     <div className="min-h-screen flex" style={{ ['--brand' as string]: tenant.primary_color, ['--accent' as string]: tenant.secondary_color }}>
       {/* Sidebar (desktop) */}
@@ -109,8 +157,19 @@ export default function Admin() {
               }`}
             >
               <Icon size={16} className={tab === key ? 'brand-text' : ''} /> {label}
+              {key === 'subscription' && isDemo && (
+                <span className="ml-auto text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-white/20">demo</span>
+              )}
             </button>
           ))}
+          {isSuper && (
+            <Link
+              to="/superadmin"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition text-amber-300 hover:bg-white/8 border-t border-white/10 mt-2 pt-3"
+            >
+              <ShieldCheck size={16} /> Gestão da Plataforma
+            </Link>
+          )}
         </nav>
         <div className="p-3 border-t border-white/10 space-y-1">
           <Link
@@ -143,7 +202,7 @@ export default function Admin() {
             <div className="min-w-0 flex-1">
               <p className="font-bold text-sm leading-tight truncate">{tenant.name}</p>
               <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                Modo demonstração · {profile.name}
+                {isDemo ? 'Modo demonstração' : subStatus === 'trialing' ? 'Teste grátis' : 'Plano ativo'} · {profile.name}
               </p>
             </div>
             <Link to={`/agendar/${tenant.slug}`} className="lg:hidden text-slate-500">
@@ -177,9 +236,10 @@ export default function Admin() {
           {tab === 'branding' && <BrandingTab tenant={tenant} onSaved={setTenant} />}
           {tab === 'finance' && <FinanceTab tenant={tenant} />}
           {tab === 'crm' && <CrmTab tenant={tenant} />}
-          {tab === 'stock' && <StockTab />}
-          {tab === 'club' && <ClubTab />}
+          {tab === 'stock' && <StockTab tenant={tenant} />}
+          {tab === 'club' && <ClubTab tenant={tenant} />}
           {tab === 'editor' && <EditorTab tenant={tenant} />}
+          {tab === 'subscription' && <SubscriptionTab sub={sub} onRefresh={loadSub} />}
         </main>
       </div>
     </div>

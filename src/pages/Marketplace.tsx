@@ -41,6 +41,9 @@ export default function Marketplace() {
             <p className="text-lg font-extrabold tracking-tight">
               Kal<span className="brand-text">Bix</span> Agenda
             </p>
+            <Link to="/criar" className="flex items-center gap-1.5 text-sm bg-amber-400 hover:bg-amber-300 text-slate-900 font-semibold transition rounded-lg px-3 py-2">
+              Criar meu agendamento
+            </Link>
             <Link to="/entrar" className="flex items-center gap-1.5 text-sm bg-white/10 hover:bg-white/20 transition rounded-lg px-3 py-2">
               <LogIn size={15} /> Área do dono
             </Link>

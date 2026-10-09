@@ -152,9 +152,16 @@ export default function Login() {
           </div>
         )}
 
-        <Link to="/explorar" className="inline-block text-xs text-white/40 hover:text-white mt-8 underline underline-offset-2">
-          Voltar para o diretório público
-        </Link>
+        <div className="mt-8 space-y-2">
+          {!user && (
+            <Link to="/criar" className="block text-center text-xs text-amber-300 hover:text-amber-200 font-semibold underline underline-offset-2">
+              Quero criar o agendamento do meu negócio — 7 dias grátis
+            </Link>
+          )}
+          <Link to="/explorar" className="block text-center text-xs text-white/40 hover:text-white underline underline-offset-2">
+            Voltar para o diretório público
+          </Link>
+        </div>
       </div>
     </div>
   );

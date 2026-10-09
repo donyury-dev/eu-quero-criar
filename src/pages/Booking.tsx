@@ -11,13 +11,20 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { BusinessHour, Professional, Service, Tenant, Appointment, ProfessionalService } from '../lib/types';
-import { WEEKDAYS_SHORT, CATEGORY_LABELS } from '../lib/types';
+import { WEEKDAYS_SHORT, CATEGORY_LABELS, CATEGORY_ICONS } from '../lib/types';
 import { computeSlots } from '../lib/slots';
 import { addDays, fmtDateBR, fmtMoney, fmtTime, todayStr, weekdayOf } from '../lib/utils';
 
 type Step = 'service' | 'professional' | 'time' | 'details' | 'done';
 
-const CATEGORY_ICONS: Record<string, string> = { barbearia: '💈', salao: '💇', estetica: '🧖' };
+type ClubInfo = {
+  member_id: string;
+  member_name: string;
+  plan_name: string;
+  cuts_per_month: number;
+  used_this_month: number;
+  discount_pct: number;
+};
 
 function iosBannerText() {
   return '📱 Instale o app: toque em Compartilhar e depois em "Adicionar à Tela de Início".';
@@ -45,6 +52,7 @@ export default function Booking() {
   const [error, setError] = useState<string | null>(null);
   const [booked, setBooked] = useState<Appointment | null>(null);
   const [cancelled, setCancelled] = useState(false);
+  const [club, setClub] = useState<ClubInfo | null>(null);
   const [showIos, setShowIos] = useState(
     /iphone|ipad|ipod/i.test(navigator.userAgent) && !(window as unknown as { standalone?: boolean }).standalone
   );
@@ -106,6 +114,21 @@ export default function Booking() {
 
   const dateStrip = useMemo(() => Array.from({ length: 14 }, (_, i) => addDays(todayStr(), i)), []);
 
+  // Verifica se o telefone é de um assinante do clube (só na etapa de dados)
+  useEffect(() => {
+    setClub(null);
+    const digits = phone.replace(/\D/g, '');
+    if (step !== 'details' || !tenant || digits.length < 10) return;
+    const t = setTimeout(() => {
+      supabase
+        .rpc('check_club_membership', { p_tenant_id: tenant.id, p_phone: phone.trim() })
+        .then(({ data }) => {
+          if (data && data.length > 0) setClub(data[0] as ClubInfo);
+        });
+    }, 500);
+    return () => clearTimeout(t);
+  }, [phone, step, tenant]);
+
   async function submit() {
     if (!tenant || !service || !professional || !time) return;
     if (name.trim().length < 3) return setError('Informe seu nome completo.');
@@ -133,6 +156,10 @@ export default function Booking() {
       const end = new Date(2000, 0, 1, Number(time.slice(0, 2)), Number(time.slice(3, 5)));
       end.setMinutes(end.getMinutes() + service.duration_min);
       const endTime = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
+      const finalPrice =
+        club && club.used_this_month < club.cuts_per_month
+          ? Math.round(service.price_cents * (1 - club.discount_pct / 100))
+          : service.price_cents;
       const { data, error: err } = await supabase
         .from('appointments')
         .insert({
@@ -145,12 +172,20 @@ export default function Booking() {
           appointment_date: date,
           start_time: time,
           end_time: endTime,
-          price_cents: service.price_cents,
+          price_cents: finalPrice,
           status: 'confirmed',
         })
         .select('*')
         .single();
       if (err) throw err;
+      // Registra a visita do clube se o telefone é de assinante ativo com saldo
+      if (club && club.used_this_month < club.cuts_per_month) {
+        await supabase.from('club_visits').insert({
+          tenant_id: tenant.id,
+          member_id: club.member_id,
+          appointment_id: data.id,
+        });
+      }
       setBooked(data);
       setStep('done');
     } catch (e) {
@@ -205,6 +240,9 @@ export default function Booking() {
     <div style={{ ['--brand' as string]: tenant.primary_color, ['--accent' as string]: tenant.secondary_color }}>
       {/* Header */}
       <header className="brand-bg text-white">
+        {tenant.cover_url && (
+          <div className="h-36 sm:h-44 bg-cover bg-center" style={{ backgroundImage: `url(${tenant.cover_url})` }} />
+        )}
         <div className="max-w-2xl mx-auto px-4 pt-6 pb-8">
           <div className="flex items-center gap-4">
             {tenant.logo_url ? (
@@ -237,6 +275,16 @@ export default function Booking() {
               <span className="flex items-center gap-1">
                 <Clock size={13} /> {tenant.phone}
               </span>
+            )}
+            {tenant.whatsapp && (
+              <a
+                href={`https://wa.me/55${tenant.whatsapp.replace(/\D/g, '')}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 underline underline-offset-2 hover:text-white"
+              >
+                <Clock size={13} /> WhatsApp
+              </a>
             )}
           </div>
         </div>
@@ -426,10 +474,25 @@ export default function Booking() {
                   inputMode="tel"
                 />
               </label>
+              {club && (
+                <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-3.5 py-2.5 text-xs text-emerald-800 flex items-center gap-2">
+                  <BadgeCheck size={15} className="shrink-0" />
+                  <span>
+                    <b>Clube {club.plan_name}:</b> olá, {club.member_name.split(' ')[0]}!{' '}
+                    {club.used_this_month < club.cuts_per_month
+                      ? `Visita ${club.used_this_month + 1} de ${club.cuts_per_month} do mês — desconto de ${Math.round(club.discount_pct)}% aplicado.`
+                      : 'Você já usou todas as visitas deste mês.'}
+                  </span>
+                </div>
+              )}
               <div className="flex items-center justify-between pt-2 border-t border-slate-100">
                 <span className="text-sm text-slate-500">Total</span>
                 <span className="font-bold text-lg" style={{ color: tenant.secondary_color }}>
-                  {fmtMoney(service?.price_cents ?? 0)}
+                  {fmtMoney(
+                    club && club.used_this_month < club.cuts_per_month
+                      ? Math.round((service?.price_cents ?? 0) * (1 - club.discount_pct / 100))
+                      : service?.price_cents ?? 0
+                  )}
                 </span>
               </div>
               {error && <p className="text-sm text-rose-600">{error}</p>}
@@ -450,7 +513,8 @@ export default function Booking() {
             {!cancelled && (
               <>
                 <p className="text-sm text-slate-500 mt-1">
-                  Até logo, {booked.customer_name.split(' ')[0]}! Chegue com alguns minutos de antecedência.
+                  {tenant.confirmation_message?.trim() ||
+                    `Até logo, ${booked.customer_name.split(' ')[0]}! Chegue com alguns minutos de antecedência.`}
                 </p>
                 <div className="mt-5 text-left bg-slate-50 rounded-xl p-4 text-sm space-y-1.5">
                   <p>

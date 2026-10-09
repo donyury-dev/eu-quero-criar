@@ -9,6 +9,7 @@ export default function FinanceTab({ tenant }: { tenant: Tenant }) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [productTotals, setProductTotals] = useState({ revenue: 0, profit: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -22,10 +23,16 @@ export default function FinanceTab({ tenant }: { tenant: Tenant }) {
         .lte('appointment_date', `${month}-31`),
       supabase.from('professionals').select('*').eq('tenant_id', tenant.id),
       supabase.from('services').select('*').eq('tenant_id', tenant.id),
-    ]).then(([a, p, s]) => {
+      supabase.from('product_sales').select('*').eq('tenant_id', tenant.id).gte('sold_at', `${month}-01T00:00:00Z`),
+    ]).then(([a, p, s, ps]) => {
       setAppointments(a.data ?? []);
       setProfessionals(p.data ?? []);
       setServices(s.data ?? []);
+      const sales = ps.data ?? [];
+      setProductTotals({
+        revenue: sales.reduce((sum, v) => sum + v.total_cents, 0),
+        profit: sales.reduce((sum, v) => sum + (v.unit_price_cents - v.unit_cost_cents) * v.qty, 0),
+      });
       setLoading(false);
     });
   }, [tenant.id, month]);
@@ -83,10 +90,10 @@ export default function FinanceTab({ tenant }: { tenant: Tenant }) {
       {loading ? null : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-            <Kpi icon={TrendingUp} label="Faturamento" value={fmtMoney(stats.revenue)} hint={`${stats.doneCount} atendimentos`} />
+            <Kpi icon={TrendingUp} label="Faturamento" value={fmtMoney(stats.revenue + productTotals.revenue)} hint={`${stats.doneCount} atendimentos + produtos`} />
             <Kpi icon={CalendarClock} label="Previsto" value={fmtMoney(stats.forecast)} hint="agendamentos ativos" />
             <Kpi icon={Receipt} label="Ticket médio" value={fmtMoney(stats.ticket)} hint={`faltas: ${stats.noShows}`} />
-            <Kpi icon={HandCoins} label="Comissões" value={fmtMoney(stats.commissions.reduce((s, c) => s + c.commission, 0))} hint="a repassar" />
+            <Kpi icon={HandCoins} label="Comissões" value={fmtMoney(stats.commissions.reduce((s, c) => s + c.commission, 0))} hint={`lucro produtos: ${fmtMoney(productTotals.profit)}`} />
           </div>
 
           <div className="card p-4 mb-5">
