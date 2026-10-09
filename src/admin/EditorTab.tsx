@@ -12,7 +12,7 @@ type EditorAccess = {
   granted_at?: string | null;
 };
 
-const EDITOR_URL = (import.meta.env.VITE_EDITOR_URL as string | undefined) ?? 'https://auto-editor.onrender.com';
+const EDITOR_URL = (import.meta.env.VITE_EDITOR_URL as string | undefined) ?? 'https://kalbix-editor.onrender.com';
 
 function accessGranted(a: EditorAccess | null): boolean {
   if (!a) return false;
