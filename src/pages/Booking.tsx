@@ -493,7 +493,7 @@ export default function Booking() {
         <p className="flex items-center justify-center gap-1.5">
           <BadgeCheck size={13} /> Agendamento online por{' '}
           <Link to="/explorar" className="font-bold text-slate-500 hover:underline">
-            AgendaPro
+            KalBix Agenda
           </Link>
         </p>
       </footer>

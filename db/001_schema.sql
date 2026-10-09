@@ -1,4 +1,4 @@
--- AgendaPro demo: multi-tenant schema + RLS
+-- KalBix Agenda: multi-tenant schema + RLS
 create extension if not exists pgcrypto;
 
 create table if not exists public.tenants (

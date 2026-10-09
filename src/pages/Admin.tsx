@@ -95,7 +95,7 @@ export default function Admin() {
         <div className="flex items-center gap-2.5 px-5 py-5 border-b border-white/10">
           <ScissorsSquare size={22} className="brand-text shrink-0" />
           <div className="min-w-0">
-            <p className="font-bold text-sm leading-tight">AgendaPro</p>
+            <p className="font-bold text-sm leading-tight">KalBix Agenda</p>
             <p className="text-[10px] text-white/50">Painel do estabelecimento</p>
           </div>
         </div>

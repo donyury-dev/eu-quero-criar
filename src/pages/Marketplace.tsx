@@ -134,7 +134,7 @@ export default function Marketplace() {
         </div>
 
         <p className="text-center text-[11px] text-slate-400 mt-8">
-          <Smartphone size={13} className="inline -mt-0.5" /> Ambiente de demonstração — AgendaPro
+          <Smartphone size={13} className="inline -mt-0.5" /> Ambiente de demonstração — KalBix Agenda
         </p>
       </main>
     </div>
