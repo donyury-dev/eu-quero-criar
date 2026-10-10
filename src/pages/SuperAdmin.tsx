@@ -4,11 +4,13 @@ import {
   Ban,
   CheckCheck,
   ExternalLink,
+  KeyRound,
   LifeBuoy,
   Loader2,
   RefreshCw,
   Send,
   ShieldCheck,
+  UserPlus,
   Users,
   Wallet,
   X,
@@ -37,7 +39,7 @@ const TICKET_STATUS: Record<SupportTicket['status'], { label: string; cls: strin
 
 export default function SuperAdmin() {
   const { user, profile, loading } = useAuth();
-  const [tab, setTab] = useState<'clients' | 'finance' | 'support'>('clients');
+  const [tab, setTab] = useState<'clients' | 'access' | 'finance' | 'support'>('clients');
   const isSuper = profile?.role === 'superadmin';
 
   if (loading)
@@ -80,6 +82,7 @@ export default function SuperAdmin() {
           {(
             [
               { key: 'clients', label: 'Clientes', icon: Users },
+              { key: 'access', label: 'Acessos', icon: KeyRound },
               { key: 'finance', label: 'Financeiro', icon: Wallet },
               { key: 'support', label: 'Suporte', icon: LifeBuoy },
             ] as const
@@ -97,6 +100,7 @@ export default function SuperAdmin() {
         </div>
 
         {tab === 'clients' && <ClientsTab />}
+        {tab === 'access' && <AccessTab />}
         {tab === 'finance' && <FinanceTab />}
         {tab === 'support' && <SupportAdminTab />}
       </main>
@@ -231,6 +235,199 @@ function ClientsTab() {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ---------------- Acessos (usuários de login) ---------------- */
+
+type AuthUserRow = {
+  id: string;
+  email: string | null;
+  created_at: string;
+  last_sign_in_at: string | null;
+  confirmed: boolean;
+};
+
+function AccessTab() {
+  const [rows, setRows] = useState<AuthUserRow[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+  const [query, setQuery] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [creatingMsg, setCreatingMsg] = useState<string | null>(null);
+  const [pwdFor, setPwdFor] = useState<string | null>(null);
+  const [newPwd, setNewPwd] = useState('');
+  const [savingPwd, setSavingPwd] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoadingData(true);
+    setError(null);
+    const { data, error: fnErr } = await supabase.functions
+      .invoke<{ users: AuthUserRow[] }>('admin-users', { method: 'GET' })
+      .catch((e) => ({ data: null, error: e as { message: string } }));
+    if (fnErr || !data) {
+      setError((fnErr as { message: string } | null)?.message ?? 'Falha ao carregar usuários.');
+      setLoadingData(false);
+      return;
+    }
+    setRows(data.users ?? []);
+    setLoadingData(false);
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function createUser() {
+    setCreating(true);
+    setCreatingMsg(null);
+    const { error: fnErr } = await supabase.functions.invoke('admin-users', {
+      method: 'POST',
+      body: { action: 'create', email: newEmail.trim(), password: newPassword },
+    });
+    setCreating(false);
+    if (fnErr) return setCreatingMsg(fnErr.message);
+    setCreatingMsg('Usuário criado com sucesso.');
+    setNewEmail('');
+    setNewPassword('');
+    load();
+  }
+
+  async function savePassword(userId: string) {
+    setSavingPwd(true);
+    const { error: fnErr } = await supabase.functions.invoke('admin-users', {
+      method: 'POST',
+      body: { action: 'set_password', user_id: userId, password: newPwd },
+    });
+    setSavingPwd(false);
+    if (fnErr) return setError(fnErr.message);
+    setPwdFor(null);
+    setNewPwd('');
+    setError(null);
+  }
+
+  const filtered = useMemo(
+    () =>
+      rows.filter((r) => {
+        const q = query.trim().toLowerCase();
+        if (!q) return true;
+        return (r.email ?? '').toLowerCase().includes(q);
+      }),
+    [rows, query],
+  );
+
+  return (
+    <div className="space-y-5">
+      <div className="card p-4 bg-amber-50 border-amber-200">
+        <p className="text-xs text-amber-800">
+          <strong>Nota de segurança:</strong> não é possível ver a senha que o cliente criou — o sistema
+          guarda apenas um código criptografado, por design. Você pode definir uma <strong>nova</strong>
+          {' '}senha para qualquer cliente aqui, e ela substitui a anterior imediatamente.
+        </p>
+      </div>
+
+      <div className="card p-4">
+        <p className="font-semibold text-sm flex items-center gap-2 mb-3">
+          <UserPlus size={15} /> Criar acesso para um cliente
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <input
+            className="input flex-1 min-w-[200px]"
+            type="email"
+            placeholder="email-do-cliente@gmail.com"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+          />
+          <input
+            className="input w-44"
+            type="text"
+            placeholder="Senha inicial"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+          />
+          <button
+            onClick={createUser}
+            disabled={creating || newEmail.trim().length < 5 || newPassword.length < 6}
+            className="btn-accent px-4 text-sm disabled:opacity-50"
+          >
+            {creating ? <Loader2 size={15} className="animate-spin" /> : 'Criar acesso'}
+          </button>
+        </div>
+        {creatingMsg && <p className="text-xs text-slate-500 mt-2">{creatingMsg}</p>}
+      </div>
+
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <input
+            className="input flex-1"
+            placeholder="Buscar por e-mail…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <button onClick={load} className="card p-2.5 hover:border-slate-400" title="Atualizar">
+            <RefreshCw size={16} className={loadingData ? 'animate-spin text-slate-400' : 'text-slate-500'} />
+          </button>
+        </div>
+
+        {error && <p className="text-xs text-rose-600 mb-3">{error}</p>}
+
+        {loadingData ? (
+          <div className="card p-8 text-center text-slate-400 text-sm">
+            <Loader2 className="animate-spin mx-auto" /> Carregando…
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="card p-8 text-center text-sm text-slate-500">Nenhum usuário encontrado.</div>
+        ) : (
+          <div className="grid gap-2">
+            {filtered.map((u) => (
+              <div key={u.id} className="card p-3.5">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-sm truncate">{u.email ?? '(sem e-mail)'}</p>
+                    <p className="text-[11px] text-slate-400">
+                      Criado em {new Date(u.created_at).toLocaleDateString('pt-BR')}
+                      {' · '}
+                      {u.last_sign_in_at
+                        ? `Último acesso ${new Date(u.last_sign_in_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
+                        : 'Nunca acessou'}
+                      {!u.confirmed && ' · E-mail não confirmado'}
+                    </p>
+                  </div>
+                  {pwdFor === u.id ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        className="input w-44 text-xs"
+                        type="text"
+                        autoFocus
+                        placeholder="Nova senha (mín. 6)"
+                        value={newPwd}
+                        onChange={(e) => setNewPwd(e.target.value)}
+                      />
+                      <button
+                        onClick={() => savePassword(u.id)}
+                        disabled={savingPwd || newPwd.length < 6}
+                        className="btn-accent text-xs px-3 py-1.5 disabled:opacity-50"
+                      >
+                        {savingPwd ? <Loader2 size={13} className="animate-spin" /> : 'Salvar'}
+                      </button>
+                      <button onClick={() => { setPwdFor(null); setNewPwd(''); }} className="btn-ghost text-xs px-2 py-1.5">
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button onClick={() => { setPwdFor(u.id); setNewPwd(''); }} className="btn-ghost text-xs px-3 py-1.5 flex items-center gap-1.5">
+                      <KeyRound size={13} /> Trocar senha
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
