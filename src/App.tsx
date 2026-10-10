@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { supabase } from './lib/supabase';
+import { useAuth } from './context/AuthContext';
 import Marketplace from './pages/Marketplace';
 import Booking from './pages/Booking';
 import Login from './pages/Login';
 import Admin from './pages/Admin';
 import Signup from './pages/Signup';
 import SuperAdmin from './pages/SuperAdmin';
+import EditorLaunch from './pages/EditorLaunch';
 
 // Abre direto no painel se o dono já estiver logado (sessão gravada),
 // senão mostra a página de explorar.
@@ -42,6 +44,7 @@ export default function App() {
       <Route path="/entrar" element={<Login />} />
       <Route path="/criar" element={<Signup />} />
       <Route path="/admin" element={<Admin />} />
+      <Route path="/editor" element={<EditorLaunch />} />
       <Route path="/superadmin" element={<SuperAdmin />} />
       <Route path="*" element={<RootRedirect />} />
     </Routes>

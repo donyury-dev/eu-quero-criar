@@ -12,6 +12,7 @@ import {
   Repeat,
   Clapperboard,
   ExternalLink,
+  Download,
   LogOut,
   Loader2,
   ScissorsSquare,
@@ -33,6 +34,8 @@ import { StockTab, ClubTab } from '../admin/ExtrasTabs';
 import EditorTab from '../admin/EditorTab';
 import SupportTab from '../admin/SupportTab';
 import SubscriptionTab, { isPanelBlocked } from '../admin/SubscriptionTab';
+
+const APK_URL = 'https://github.com/donyury-dev/eu-quero-criar/releases/latest/download/kalbix.apk';
 
 const TABS = [
   { key: 'agenda', label: 'Agenda', icon: CalendarDays },
@@ -186,6 +189,13 @@ export default function Admin() {
           >
             <ExternalLink size={14} /> Ver página de agendamento
           </Link>
+          <a
+            href={APK_URL}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-amber-300 hover:bg-white/10"
+            download
+          >
+            <Download size={14} /> Baixar app KalBix
+          </a>
           <button
             onClick={signOut}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-white/70 hover:bg-white/10"
@@ -216,6 +226,9 @@ export default function Admin() {
             <Link to={`/agendar/${tenant.slug}`} className="lg:hidden text-slate-500">
               <ExternalLink size={18} />
             </Link>
+            <a href={APK_URL} className="lg:hidden text-slate-500" title="Baixar aplicativo KalBix" download>
+              <Download size={18} />
+            </a>
             <button onClick={signOut} className="lg:hidden text-slate-500">
               <LogOut size={18} />
             </button>

@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router-dom';
 import {
   Ban,
   CheckCheck,
+  Clapperboard,
   ExternalLink,
   KeyRound,
   LifeBuoy,
@@ -30,7 +31,14 @@ import {
   type Tenant,
 } from '../lib/types';
 
-type Row = { tenant: Tenant; sub: Subscription | null; appts: number };
+type EditorAccess = {
+  tenant_id: string;
+  plan: 'agenda' | 'full';
+  included_until: string | null;
+  manual_grant: boolean;
+  manual_revoked: boolean;
+};
+type Row = { tenant: Tenant; sub: Subscription | null; editor: EditorAccess | null; appts: number };
 type TicketRow = SupportTicket & { tenant_name: string };
 
 const TICKET_STATUS: Record<SupportTicket['status'], { label: string; cls: string }> = {
@@ -120,18 +128,21 @@ function ClientsTab() {
   const load = useCallback(async () => {
     setLoadingData(true);
     const monthStart = `${todayStr().slice(0, 7)}-01`;
-    const [t, s, a] = await Promise.all([
+    const [t, s, e, a] = await Promise.all([
       supabase.from('tenants').select('*').order('created_at'),
       supabase.from('subscriptions').select('*'),
+      supabase.from('editor_access').select('*'),
       supabase.from('appointments').select('tenant_id').gte('appointment_date', monthStart),
     ]);
     const subs = new Map((s.data ?? []).map((x: Subscription) => [x.tenant_id, x]));
+    const editors = new Map((e.data ?? []).map((x: EditorAccess) => [x.tenant_id, x]));
     const counts = new Map<string, number>();
     for (const ap of a.data ?? []) counts.set(ap.tenant_id, (counts.get(ap.tenant_id) ?? 0) + 1);
     setRows(
       (t.data ?? []).map((tenant: Tenant) => ({
         tenant,
         sub: subs.get(tenant.id) ?? null,
+        editor: editors.get(tenant.id) ?? null,
         appts: counts.get(tenant.id) ?? 0,
       })),
     );
@@ -152,6 +163,32 @@ function ClientsTab() {
   async function setSubStatus(row: Row, status: Subscription['status']) {
     await supabase.from('subscriptions').update({ status, updated_at: new Date().toISOString() }).eq('tenant_id', row.tenant.id);
     load();
+  }
+
+  async function setEditorAccess(
+    row: Row,
+    patch: Partial<EditorAccess>,
+    label: string,
+  ) {
+    if (!confirm(`${label} para "${row.tenant.name}"?`)) return;
+    const current = row.editor;
+    await supabase.from('editor_access').upsert({
+      tenant_id: row.tenant.id,
+      plan: current?.plan ?? 'agenda',
+      included_until: current?.included_until ?? null,
+      manual_grant: current?.manual_grant ?? false,
+      manual_revoked: current?.manual_revoked ?? false,
+      ...patch,
+      updated_at: new Date().toISOString(),
+    });
+    load();
+  }
+
+  function editorDate(row: Row) {
+    if (row.editor?.manual_revoked) return 'bloqueado';
+    if (row.editor?.plan === 'full') return 'permanente';
+    if (row.editor?.included_until) return `até ${row.editor.included_until}`;
+    return 'sem acesso';
   }
 
   const filtered = useMemo(
@@ -230,6 +267,68 @@ function ClientsTab() {
                     className={`btn-ghost text-xs px-3 py-1.5 flex items-center gap-1.5 ${row.tenant.is_blocked ? 'text-emerald-600' : 'text-rose-600'}`}
                   >
                     <Ban size={13} /> {row.tenant.is_blocked ? 'Desbloquear' : 'Bloquear'}
+                  </button>
+                </div>
+                <div className="w-full border-t border-slate-100 pt-3 flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-600 flex items-center gap-1.5 mr-1">
+                    <Clapperboard size={13} className="text-orange-500" />
+                    Editor: <b className={row.editor?.manual_revoked ? 'text-rose-600' : 'text-slate-800'}>{editorDate(row)}</b>
+                  </span>
+                  <button
+                    onClick={() =>
+                      setEditorAccess(
+                        row,
+                        {
+                          manual_grant: true,
+                          manual_revoked: false,
+                          included_until: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+                        },
+                        'Liberar o editor por 30 dias',
+                      )
+                    }
+                    className="btn-ghost text-[11px] px-2.5 py-1.5 text-emerald-700"
+                  >
+                    +30 dias
+                  </button>
+                  <button
+                    onClick={() =>
+                      setEditorAccess(
+                        row,
+                        {
+                          manual_grant: true,
+                          manual_revoked: false,
+                          included_until: new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10),
+                        },
+                        'Liberar o editor por 90 dias',
+                      )
+                    }
+                    className="btn-ghost text-[11px] px-2.5 py-1.5 text-emerald-700"
+                  >
+                    +90 dias
+                  </button>
+                  <button
+                    onClick={() =>
+                      setEditorAccess(
+                        row,
+                        { plan: 'full', manual_grant: true, manual_revoked: false, included_until: null },
+                        'Liberar o editor permanentemente',
+                      )
+                    }
+                    className="btn-ghost text-[11px] px-2.5 py-1.5 text-amber-700"
+                  >
+                    Permanente
+                  </button>
+                  <button
+                    onClick={() =>
+                      setEditorAccess(
+                        row,
+                        { manual_grant: false, manual_revoked: true },
+                        'Bloquear o editor',
+                      )
+                    }
+                    className="btn-ghost text-[11px] px-2.5 py-1.5 text-rose-600"
+                  >
+                    Bloquear
                   </button>
                 </div>
               </div>
@@ -467,7 +566,7 @@ function FinanceTab() {
     ]);
     const subs = new Map((s.data ?? []).map((x: Subscription) => [x.tenant_id, x]));
     setRows(
-      (t.data ?? []).map((tenant: Tenant) => ({ tenant, sub: subs.get(tenant.id) ?? null, appts: 0 })),
+      (t.data ?? []).map((tenant: Tenant) => ({ tenant, sub: subs.get(tenant.id) ?? null, editor: null, appts: 0 })),
     );
     setLoadingData(false);
   }, []);
