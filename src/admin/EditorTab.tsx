@@ -120,7 +120,7 @@ export default function EditorTab({ tenant }: { tenant: Tenant | null }) {
             <button
               onClick={bloquear}
               disabled={busy}
-              className="rounded-lg bg-red-600/80 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
+              className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-50"
             >
               Bloquear acesso
             </button>
@@ -130,7 +130,7 @@ export default function EditorTab({ tenant }: { tenant: Tenant | null }) {
               href={EDITOR_URL}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-1.5 rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-500"
+              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-orange-500/30 transition hover:brightness-110 active:scale-95"
             >
               Abrir editor <ExternalLink size={14} />
             </a>

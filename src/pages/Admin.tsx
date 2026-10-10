@@ -221,14 +221,12 @@ export default function Admin() {
             </button>
           </div>
           {/* Mobile tabs */}
-          <nav className="flex gap-1 px-3 pb-2 overflow-x-auto lg:hidden">
+          <nav className="tabs-mobile lg:hidden">
             {TABS.map(({ key, label }) => (
               <button
                 key={key}
                 onClick={() => setTab(key)}
-                className={`shrink-0 text-xs px-3 py-1.5 rounded-full transition ${
-                  tab === key ? 'brand-accent font-semibold text-slate-900' : 'bg-slate-100 text-slate-500'
-                }`}
+                className={tab === key ? 'on' : ''}
               >
                 {label}
               </button>
