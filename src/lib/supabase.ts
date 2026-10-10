@@ -22,3 +22,9 @@ export const supabase = createClient(SUPABASE_BASE_URL, SUPABASE_KEY, {
 
 // Fixed id of the demo establishment used for self-onboarding.
 export const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
+
+// Conta fixa usada pelo botão "Ver demonstração" (1 clique).
+// Crie esse usuário uma vez no Supabase (Authentication → Users → Add user)
+// ou deixe o próprio botão criar no primeiro clique.
+export const DEMO_LOGIN_EMAIL = 'demo@kalbixagenda.com';
+export const DEMO_LOGIN_PASSWORD = 'demo-kalbix-2026';

@@ -1,17 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Check, Loader2, MailCheck, Store } from 'lucide-react';
+import { ArrowRight, Check, Loader2, Store } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { CATEGORY_LABELS } from '../lib/types';
 
 export default function Signup() {
-  const [step, setStep] = useState<'data' | 'code' | 'creating'>('data');
+  const [step, setStep] = useState<'data' | 'creating' | 'confirm'>('data');
   const [form, setForm] = useState({ name: '', category: 'barbearia', city: '', whatsapp: '', ownerName: '' });
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -20,38 +19,24 @@ export default function Signup() {
     });
   }, []);
 
-  async function handleSendCode(e: React.FormEvent) {
+  async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setSending(true);
     setError(null);
-    const { error } = await supabase.auth.signInWithOtp({
+    const { data, error: signErr } = await supabase.auth.signUp({
       email: email.trim(),
-      options: { shouldCreateUser: true },
+      password,
     });
-    setSending(false);
-    if (error) setError(error.message);
-    else {
-      setStep('code');
-      setNotice('Código enviado! Confira sua caixa de entrada (e o spam).');
-    }
-  }
-
-  async function handleVerify(e: React.FormEvent) {
-    e.preventDefault();
-    setSending(true);
-    setError(null);
-    setStep('creating');
-    const { error: verifyErr } = await supabase.auth.verifyOtp({
-      email: email.trim(),
-      token: code.replace(/\D/g, ''),
-      type: 'email',
-    });
-    if (verifyErr) {
+    if (signErr) {
       setSending(false);
-      setStep('code');
-      return setError(verifyErr.message);
+      return setError(signErr.message);
     }
-    const { data, error: rpcErr } = await supabase.rpc('create_establishment', {
+    if (!data.session) {
+      // Confirmação de e-mail ativada no Supabase: pede para confirmar e depois entrar.
+      setSending(false);
+      return setStep('confirm');
+    }
+    const { error: rpcErr } = await supabase.rpc('create_establishment', {
       p_name: form.name.trim(),
       p_category: form.category,
       p_city: form.city.trim(),
@@ -60,8 +45,6 @@ export default function Signup() {
     });
     setSending(false);
     if (rpcErr) return setError(rpcErr.message);
-    void data;
-    setStep('data');
     navigate('/admin', { replace: true });
   }
 
@@ -133,59 +116,42 @@ export default function Signup() {
                 placeholder="Como você se chama"
               />
             </label>
-            <button
-              disabled={form.name.trim().length < 2}
-              onClick={() => setStep('code')}
-              className="btn-accent w-full py-3 flex items-center justify-center gap-2 disabled:opacity-40"
-            >
-              Continuar <ArrowRight size={16} />
-            </button>
+
+            <div className="border-t border-white/10 pt-3 space-y-3">
+              <h2 className="font-bold text-sm flex items-center gap-2">
+                <Check size={16} className="text-amber-400" /> Seu acesso (e-mail e senha)
+              </h2>
+              <form onSubmit={handleCreate} className="space-y-3">
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="seu@email.com"
+                  className="w-full rounded-lg bg-white/10 border border-white/15 px-3 py-2.5 text-sm placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
+                />
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Crie uma senha (mín. 6 letras)"
+                  className="w-full rounded-lg bg-white/10 border border-white/15 px-3 py-2.5 text-sm placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
+                />
+                <button
+                  disabled={sending || form.name.trim().length < 2}
+                  className="btn-accent w-full py-3 flex items-center justify-center gap-2 disabled:opacity-40"
+                >
+                  {sending ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+                  Criar minha conta — 7 dias grátis
+                </button>
+              </form>
+              {error && <p className="text-xs text-rose-400 text-center">{error}</p>}
+            </div>
             <p className="text-[11px] text-white/40 text-center">
               Já tem conta? <Link to="/entrar" className="underline text-white/60 hover:text-white">Entrar</Link>
             </p>
-          </div>
-        )}
-
-        {step === 'code' && (
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-3">
-            <h1 className="font-bold text-lg flex items-center gap-2">
-              <MailCheck size={18} className="text-amber-400" /> Confirme seu e-mail
-            </h1>
-            <form onSubmit={handleSendCode} className="space-y-3">
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="seu@email.com"
-                className="w-full rounded-lg bg-white/10 border border-white/15 px-3 py-2.5 text-sm placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
-              />
-              <button disabled={sending} className="btn-accent w-full py-3 flex items-center justify-center gap-2 disabled:opacity-50">
-                {sending ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />} Enviar código
-              </button>
-            </form>
-            <form onSubmit={handleVerify} className="space-y-3">
-              <input
-                inputMode="numeric"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="000000"
-                className="w-full rounded-lg bg-white/10 border border-white/15 px-3 py-2.5 text-center text-xl tracking-[0.4em] placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
-              />
-              <button
-                disabled={sending || code.replace(/\D/g, '').length < 6}
-                className="btn-accent w-full py-3 flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {sending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Criar meu estabelecimento
-              </button>
-            </form>
-            <button
-              type="button"
-              onClick={() => { setStep('data'); setCode(''); setNotice(null); }}
-              className="w-full text-xs text-white/50 hover:text-white"
-            >
-              Voltar
-            </button>
           </div>
         )}
 
@@ -196,8 +162,20 @@ export default function Signup() {
           </div>
         )}
 
-        {notice && step === 'code' && <p className="text-xs text-emerald-400 mt-3 text-center">{notice}</p>}
-        {error && <p className="text-xs text-rose-400 mt-3 text-center">{error}</p>}
+        {step === 'confirm' && (
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center space-y-4">
+            <Check size={28} className="mx-auto text-amber-400" />
+            <p className="text-sm text-white/80">
+              Conta criada! Enviamos um e-mail de confirmação para <strong>{email}</strong>.
+            </p>
+            <p className="text-xs text-white/50">
+              Confirme no e-mail e depois entre com seu e-mail e senha.
+            </p>
+            <Link to="/entrar" className="btn-accent inline-block px-6 py-2.5 text-sm">
+              Ir para o login
+            </Link>
+          </div>
+        )}
 
         <Link to="/explorar" className="block text-center text-xs text-white/40 hover:text-white mt-8 underline underline-offset-2">
           Voltar para o diretório público
