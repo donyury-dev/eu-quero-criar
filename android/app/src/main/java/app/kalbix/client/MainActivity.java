@@ -125,6 +125,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void onNavSelected(@NonNull MenuItem item) {
         int id = item.getItemId();
+        if (id == R.id.nav_sobre) {
+            showAbout();
+            return;
+        }
         if (id == currentNavId) return;
         currentNavId = id;
 
@@ -151,6 +155,16 @@ public class MainActivity extends AppCompatActivity {
         }
 
         navView.setCheckedItem(id);
+    }
+
+    private void showAbout() {
+        checkForUpdate();
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(R.string.menu_sobre)
+                .setMessage(getString(R.string.sobre_message,
+                        BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE))
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
     }
 
     @SuppressLint("SetJavaScriptEnabled")

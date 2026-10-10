@@ -7,6 +7,8 @@
     <string name="update_button">Baixar atualização</string>
     <string name="update_downloading">Baixando atualização…</string>
     <string name="menu_update">Atualizar app</string>
+    <string name="menu_sobre">Sobre o app</string>
+    <string name="sobre_message">KalBix — Agenda &amp; Editor\n\nVersão %1$s (build %2$d)</string>
     <string name="drawer_open">Abrir menu</string>
     <string name="drawer_close">Fechar menu</string>
 </resources>
