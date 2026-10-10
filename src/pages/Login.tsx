@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogOut, Store, ArrowRight, Loader2, PlayCircle } from 'lucide-react';
+import { LogOut, Store, ArrowRight, Loader2, PlayCircle, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase, DEMO_LOGIN_EMAIL, DEMO_LOGIN_PASSWORD } from '../lib/supabase';
+import { toAuthEmail, LOGIN_PATTERN } from '../lib/auth';
 
 export default function Login() {
-  const { user, profile, loading, signOut, linkAsDemoOwner } = useAuth();
+  const { user, profile, loading, signOut } = useAuth();
   const [linking, setLinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [email, setEmail] = useState('');
+  const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [sending, setSending] = useState(false);
   const [resetSent, setResetSent] = useState(false);
@@ -20,30 +21,37 @@ export default function Login() {
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
+    const clean = login.trim().toLowerCase();
+    // Logins sem @ precisam seguir o padrão de usuário.
+    if (!clean.includes('@') && !LOGIN_PATTERN.test(clean)) {
+      return setError('Login inválido. Use de 3 a 30 letras, números, ponto, hífen ou _ .');
+    }
     setSending(true);
     setError(null);
     const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email: toAuthEmail(clean),
       password,
     });
     setSending(false);
     if (error) {
       setError(
         error.message.toLowerCase().includes('email not confirmed')
-          ? 'Confirme o e-mail da conta no Supabase ou desative “Confirm email” em Authentication → Providers → Email.'
-          : 'E-mail ou senha incorretos. Se essa conta foi criada por código, use “Criar/recuperar senha” abaixo.'
+          ? 'Esta conta ainda precisa de confirmação. Fale com o suporte para liberar o acesso.'
+          : 'Login ou senha incorretos.'
       );
     }
   }
 
   async function handleResetPassword() {
-    if (!email.trim()) {
-      setError('Digite seu e-mail primeiro para receber o link de recuperação.');
-      return;
+    const clean = login.trim().toLowerCase();
+    if (!clean.includes('@')) {
+      return setError(
+        'Logins sem e-mail não recebem mensagens. Peça ao dono da plataforma para trocar sua senha pelo painel (aba Acessos).'
+      );
     }
     setSending(true);
     setError(null);
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    const { error } = await supabase.auth.resetPasswordForEmail(clean, {
       redirectTo: `${window.location.origin}/#/entrar`,
     });
     setSending(false);
@@ -71,7 +79,7 @@ export default function Login() {
     if (res.error) {
       setLinking(false);
       return setError(
-        'Não foi possível abrir a demonstração. Crie o usuário "demo@kalbixagenda.com" com a senha "demo-kalbix-2026" no painel do Supabase (Authentication → Users → Add user) e tente de novo.'
+        'Não foi possível abrir a demonstração. Desative "Confirm email" no Supabase (Authentication → Providers → Email) ou crie o usuário demo manualmente e tente de novo.'
       );
     }
     // Assume o estabelecimento demo se ainda não tiver vínculo.
@@ -121,20 +129,21 @@ export default function Login() {
 
             <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-left">
               <h1 className="font-bold text-lg flex items-center gap-2">
-                <Store size={18} className="text-amber-400" /> Já sou cliente
+                <User size={18} className="text-amber-400" /> Já tenho conta
               </h1>
               <form onSubmit={handleLogin} className="mt-4 space-y-3">
                 <input
-                  type="email"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="seu@email.com"
+                  autoComplete="username"
+                  value={login}
+                  onChange={(e) => setLogin(e.target.value)}
+                  placeholder="Seu login (ou e-mail)"
                   className="w-full rounded-lg bg-white/10 border border-white/15 px-3 py-2.5 text-sm placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
                 />
                 <input
                   type="password"
                   required
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Sua senha"
@@ -145,7 +154,7 @@ export default function Login() {
                   className="w-full rounded-lg border border-white/20 bg-white/10 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-white/15 transition disabled:opacity-50"
                 >
                   {sending ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
-                  Entrar com e-mail e senha
+                  Entrar com login e senha
                 </button>
               </form>
               <button
@@ -154,7 +163,7 @@ export default function Login() {
                 disabled={sending}
                 className="w-full text-xs text-amber-300 hover:text-amber-200 mt-3 underline underline-offset-2 disabled:opacity-50"
               >
-                Criar ou recuperar minha senha
+                Esqueci minha senha
               </button>
               {resetSent && (
                 <p className="text-xs text-emerald-400 mt-3">

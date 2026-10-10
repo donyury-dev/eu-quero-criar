@@ -18,6 +18,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { fmtMoney, todayStr } from '../lib/utils';
+import { displayLogin, toAuthEmail } from '../lib/auth';
 import {
   CATEGORY_LABELS,
   SUB_STATUS_META,
@@ -286,7 +287,7 @@ function AccessTab() {
     setCreatingMsg(null);
     const { error: fnErr } = await supabase.functions.invoke('admin-users', {
       method: 'POST',
-      body: { action: 'create', email: newEmail.trim(), password: newPassword },
+      body: { action: 'create', email: toAuthEmail(newEmail), password: newPassword },
     });
     setCreating(false);
     if (fnErr) return setCreatingMsg(fnErr.message);
@@ -314,7 +315,7 @@ function AccessTab() {
       rows.filter((r) => {
         const q = query.trim().toLowerCase();
         if (!q) return true;
-        return (r.email ?? '').toLowerCase().includes(q);
+        return displayLogin(r.email).toLowerCase().includes(q);
       }),
     [rows, query],
   );
@@ -336,8 +337,8 @@ function AccessTab() {
         <div className="flex flex-wrap gap-2">
           <input
             className="input flex-1 min-w-[200px]"
-            type="email"
-            placeholder="email-do-cliente@gmail.com"
+            type="text"
+            placeholder="login-do-cliente (ou e-mail)"
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
           />
@@ -350,7 +351,7 @@ function AccessTab() {
           />
           <button
             onClick={createUser}
-            disabled={creating || newEmail.trim().length < 5 || newPassword.length < 6}
+            disabled={creating || newEmail.trim().length < 3 || newPassword.length < 6}
             className="btn-accent px-4 text-sm disabled:opacity-50"
           >
             {creating ? <Loader2 size={15} className="animate-spin" /> : 'Criar acesso'}
@@ -386,7 +387,7 @@ function AccessTab() {
               <div key={u.id} className="card p-3.5">
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-sm truncate">{u.email ?? '(sem e-mail)'}</p>
+                    <p className="font-semibold text-sm truncate">{displayLogin(u.email)}</p>
                     <p className="text-[11px] text-slate-400">
                       Criado em {new Date(u.created_at).toLocaleDateString('pt-BR')}
                       {' · '}
