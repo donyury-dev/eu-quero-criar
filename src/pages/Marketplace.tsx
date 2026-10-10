@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, MapPin, LogIn, Sparkles, Smartphone } from 'lucide-react';
+import { Search, MapPin, LogIn, LayoutDashboard, Sparkles, Smartphone } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Tenant } from '../lib/types';
 import { CATEGORY_LABELS } from '../lib/types';
@@ -12,8 +12,10 @@ export default function Marketplace() {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [logged, setLogged] = useState(false);
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setLogged(!!data.session));
     supabase.from('tenants').select('*').order('created_at').then(({ data }) => {
       setTenants(data ?? []);
       setLoading(false);
@@ -44,9 +46,15 @@ export default function Marketplace() {
             <Link to="/criar" className="flex items-center gap-1.5 text-sm bg-amber-400 hover:bg-amber-300 text-slate-900 font-semibold transition rounded-lg px-3 py-2">
               Criar meu agendamento
             </Link>
-            <Link to="/entrar" className="flex items-center gap-1.5 text-sm bg-white/10 hover:bg-white/20 transition rounded-lg px-3 py-2">
-              <LogIn size={15} /> Área do dono
-            </Link>
+            {logged ? (
+              <Link to="/admin" className="flex items-center gap-1.5 text-sm bg-gradient-to-br from-amber-400 to-orange-500 text-white font-bold transition rounded-lg px-3 py-2 shadow-lg shadow-orange-500/30">
+                <LayoutDashboard size={15} /> Meu painel
+              </Link>
+            ) : (
+              <Link to="/entrar" className="flex items-center gap-1.5 text-sm bg-white/10 hover:bg-white/20 transition rounded-lg px-3 py-2">
+                <LogIn size={15} /> Área do dono
+              </Link>
+            )}
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold mt-6 leading-tight">
             Encontre e agende seu próximo horário
@@ -140,6 +148,15 @@ export default function Marketplace() {
           <Smartphone size={13} className="inline -mt-0.5" /> Ambiente de demonstração — KalBix Agenda
         </p>
       </main>
+
+      {logged && (
+        <Link
+          to="/admin"
+          className="fixed bottom-4 left-4 right-4 z-40 flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 px-4 py-3.5 text-sm font-bold text-white shadow-xl shadow-orange-500/30 lg:hidden"
+        >
+          <LayoutDashboard size={16} /> Abrir meu painel
+        </Link>
+      )}
     </div>
   );
 }
