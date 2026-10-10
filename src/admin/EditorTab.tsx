@@ -70,22 +70,22 @@ export default function EditorTab({ tenant }: { tenant: Tenant | null }) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+      <div className="card p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-orange-500/15 p-2.5 text-orange-400">
+            <div className="rounded-lg bg-orange-100 p-2.5 text-orange-600">
               <Clapperboard size={22} />
             </div>
             <div>
-              <h3 className="font-semibold text-white">Editor de Vídeo (Auto Editor)</h3>
-              <p className="text-sm text-white/60">
+              <h3 className="font-semibold text-slate-800">Editor de Vídeo (Auto Editor)</h3>
+              <p className="text-sm text-slate-500">
                 Edição automática de vídeos verticais com IA — incluso no plano.
               </p>
             </div>
           </div>
           <span
             className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
-              granted ? 'bg-emerald-500/15 text-emerald-400' : 'bg-white/10 text-white/60'
+              granted ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
             }`}
           >
             {granted ? <ShieldCheck size={14} /> : <Lock size={14} />}
@@ -93,17 +93,17 @@ export default function EditorTab({ tenant }: { tenant: Tenant | null }) {
           </span>
         </div>
 
-        <div className="mt-4 space-y-2 text-sm text-white/70">
+        <div className="mt-4 space-y-2 text-sm text-slate-600">
           <p>
-            Plano: <b className="text-white">{access?.plan === 'full' ? 'Completo (editor incluso)' : 'Agenda'}</b>
+            Plano: <b className="text-slate-800">{access?.plan === 'full' ? 'Completo (editor incluso)' : 'Agenda'}</b>
           </p>
           {access?.included_until && (
             <p>
-              Meses inclusos até: <b className="text-white">{access.included_until}</b>
+              Meses inclusos até: <b className="text-slate-800">{access.included_until}</b>
             </p>
           )}
           {autoGranted && (
-            <p className="text-emerald-400">Liberado automaticamente pelo plano completo.</p>
+            <p className="text-emerald-600">Liberado automaticamente pelo plano completo.</p>
           )}
         </div>
 
@@ -138,8 +138,8 @@ export default function EditorTab({ tenant }: { tenant: Tenant | null }) {
         </div>
       </div>
 
-      <div className="rounded-xl border border-white/10 bg-white/5 p-5 text-sm text-white/60">
-        <p className="font-medium text-white">Como funciona</p>
+      <div className="card p-5 text-sm text-slate-600">
+        <p className="font-medium text-slate-800">Como funciona</p>
         <ul className="mt-2 list-disc space-y-1 pl-5">
           <li>Assinando o agendamento, o editor fica incluso nos primeiros meses.</li>
           <li>No plano completo, o acesso é liberado automaticamente.</li>

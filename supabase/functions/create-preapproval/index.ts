@@ -34,6 +34,7 @@ Deno.serve(async (req) => {
     const { data: userData, error: userErr } = await supabaseAdmin.auth.getUser(token);
     if (userErr || !userData.user) throw new Error('Sessão inválida — faça login novamente.');
     const user = userData.user;
+    if (!user.email) throw new Error('Conta sem e-mail para o pagamento.');
 
     // Tenant do usuário
     const { data: profile } = await supabaseAdmin
@@ -68,6 +69,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         reason: 'KalBix Agenda — Plano Mensal',
         external_reference: tenantId,
+        payer_email: user.email,
         auto_recurring: {
           frequency: 1,
           frequency_type: 'months',

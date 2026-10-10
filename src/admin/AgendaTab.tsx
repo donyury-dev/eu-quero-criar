@@ -89,6 +89,13 @@ export default function AgendaTab({ tenant }: { tenant: Tenant }) {
         <div className="grid place-items-center py-20 text-slate-400">
           <Loader2 className="animate-spin" />
         </div>
+      ) : professionals.length === 0 ? (
+        <div className="card p-10 text-center">
+          <p className="font-semibold text-slate-700">Nenhum profissional cadastrado</p>
+          <p className="text-sm text-slate-500 mt-1">
+            A agenda é organizada por profissional. Cadastre você mesmo (ou sua equipe) na aba <b>Equipe</b> para começar a receber agendamentos.
+          </p>
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {professionals.map((p) => {
