@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Check, Loader2, Store } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { CATEGORY_LABELS } from '../lib/types';
-import { toAuthEmail, LOGIN_PATTERN } from '../lib/auth';
+import { LOGIN_PATTERN } from '../lib/auth';
 
 export default function Signup() {
   const [step, setStep] = useState<'data' | 'creating' | 'error'>('data');
@@ -30,25 +30,23 @@ export default function Signup() {
     setSending(true);
     setError(null);
 
-    const { data, error: signErr } = await supabase.auth.signUp({
-      email: toAuthEmail(clean),
+    const { data: registerData, error: registerErr } = await supabase.functions.invoke<{
+      email: string;
+      error?: string;
+    }>('register-login', {
+      body: { login: clean, password },
+    });
+    if (registerErr || registerData?.error) {
+      setSending(false);
+      return setError(registerData?.error ?? registerErr?.message ?? 'Não foi possível criar a conta.');
+    }
+    const { error: signInErr } = await supabase.auth.signInWithPassword({
+      email: registerData!.email,
       password,
     });
-    if (signErr) {
+    if (signInErr) {
       setSending(false);
-      const msg = signErr.message.toLowerCase();
-      if (msg.includes('already registered') || msg.includes('already exists')) {
-        return setError('Esse login já está em uso. Escolha outro.');
-      }
-      if (msg.includes('confirm')) {
-        return setError('A confirmação de e-mail ainda está ativa no Supabase. Desative "Confirm email" em Authentication → Providers → Email.');
-      }
-      return setError(signErr.message);
-    }
-    if (!data.session) {
-      // Confirmação de e-mail ativada no Supabase: sem isso o cliente não entra direto.
-      setSending(false);
-      return setError('Desative "Confirm email" no Supabase (Authentication → Providers → Email) para o cadastro entrar direto.');
+      return setError(`Conta criada, mas não foi possível entrar: ${signInErr.message}`);
     }
     setStep('creating');
     const { error: rpcErr } = await supabase.rpc('create_establishment', {
