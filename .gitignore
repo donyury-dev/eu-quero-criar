@@ -3,3 +3,10 @@ dist
 tsconfig.tsbuildinfo
 *.log
 .verdent/
+
+# APK: chave descriptografada nunca vai para o git
+android/keystore/*.jks
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties

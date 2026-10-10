@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Logo KalBix: quadrado âmbar arredondado com calendário branco -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M30,22 h48 a10,10 0 0 1 10,10 v44 a10,10 0 0 1 -10,10 h-48 a10,10 0 0 1 -10,-10 v-44 a10,10 0 0 1 10,-10 z" />
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M34,40 h40 v30 h-40 z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,42 h36 v26 h-36 z" />
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M40,30 a3,3 0 0 1 6,0 v8 h-6 z M62,30 a3,3 0 0 1 6,0 v8 h-6 z" />
+    <path
+        android:strokeColor="#0F172A"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M44,54 l7,7 l13,-13" />
+</vector>

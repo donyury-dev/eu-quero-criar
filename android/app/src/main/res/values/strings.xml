@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">KalBix</string>
+    <string name="tab_agenda">Agenda</string>
+    <string name="tab_editor">Editor</string>
+    <string name="update_title">Nova versão disponível</string>
+    <string name="update_button">Atualizar</string>
+    <string name="update_downloading">Baixando atualização…</string>
+</resources>

@@ -1,0 +1,62 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Versão centralizada em app/version.properties.
+// Para publicar uma atualização: aumente VERSION_CODE (obrigatório) e
+// VERSION_NAME, atualize também web/public/app-version.json e faça push.
+def verProps = new Properties()
+def verFile = file("version.properties")
+if (verFile.exists()) verProps.load(new FileInputStream(verFile))
+def vCode = (verProps["VERSION_CODE"] ?: "1").toInteger()
+def vName = verProps["VERSION_NAME"] ?: "1.0.0"
+
+android {
+    namespace 'app.kalbix.client'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "app.kalbix.client"
+        minSdk 26
+        targetSdk 34
+        versionCode vCode
+        versionName vName
+    }
+
+    signingConfigs {
+        release {
+            // O keystore é destravado pelo workflow com o secret KALBIX_KS_PASS.
+            def ksFile = file("keystore/kalbix-release.jks")
+            if (ksFile.exists()) {
+                storeFile ksFile
+                storePassword System.getenv("KS_PASS")
+                keyAlias "kalbix"
+                keyPassword System.getenv("KS_PASS")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            def ksFile = file("keystore/kalbix-release.jks")
+            if (ksFile.exists()) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    buildFeatures {
+        buildConfig true // BuildConfig.VERSION_CODE usado na checagem de atualização
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'com.google.android.material:material:1.12.0'
+}

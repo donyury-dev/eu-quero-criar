@@ -1,0 +1,77 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Destravar keystore de assinatura
+        env:
+          KS_PASS: ${{ secrets.KALBIX_KS_PASS }}
+        run: |
+          if [ -z "$KS_PASS" ]; then
+            echo "::warning::Secret KALBIX_KS_PASS ausente — o APK será gerado SEM assinatura (não serve para atualizar clientes). Configure o secret e rode novamente."
+            exit 0
+          fi
+          openssl enc -d -aes-256-cbc -pbkdf2 \
+            -in keystore/kalbix-release.jks.enc \
+            -out app/keystore/kalbix-release.jks \
+            -pass pass:"$KS_PASS"
+          echo "KS_SIGNED=true" >> "$GITHUB_ENV"
+
+      - name: Build do APK
+        env:
+          KS_PASS: ${{ secrets.KALBIX_KS_PASS }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Preparar artefato
+        id: ver
+        run: |
+          mkdir -p ../apk-out
+          cp app/build/outputs/apk/release/*.apk ../apk-out/
+          if [ "$KS_SIGNED" = "true" ]; then
+            mv ../apk-out/app-release.apk ../apk-out/kalbix.apk 2>/dev/null || true
+          fi
+          VC=$(grep '^VERSION_CODE=' app/version.properties | cut -d= -f2 | tr -d '[:space:]')
+          VN=$(grep '^VERSION_NAME=' app/version.properties | cut -d= -f2 | tr -d '[:space:]')
+          echo "code=$VC" >> "$GITHUB_OUTPUT"
+          echo "name=$VN" >> "$GITHUB_OUTPUT"
+          ls -la ../apk-out
+
+      - name: Publicar release (só quando assinado)
+        if: env.KS_SIGNED == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.code }}
+          name: KalBix v${{ steps.ver.outputs.name }}
+          files: apk-out/kalbix.apk
+          make_latest: true
+          fail_on_unmatched_files: true
+
+      - name: Salvar artefato do build
+        uses: actions/upload-artifact@v4
+        with:
+          name: kalbix-apk
+          path: apk-out/*.apk
