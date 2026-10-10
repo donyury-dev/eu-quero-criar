@@ -45,7 +45,7 @@ import java.nio.charset.StandardCharsets;
 public class MainActivity extends AppCompatActivity {
 
     private static final String PANEL_URL = "https://kalbix.vercel.app/";
-    private static final String EDITOR_URL = "https://kalbix-editor.onrender.com/";
+    private static final String EDITOR_LAUNCH_URL = "https://kalbix.vercel.app/editor";
     private static final String VERSION_URL = "https://kalbix.vercel.app/app-version.json";
     private static final String HOST_PANEL = "kalbix.vercel.app";
     private static final String HOST_EDITOR = "kalbix-editor.onrender.com";
@@ -84,7 +84,9 @@ public class MainActivity extends AppCompatActivity {
             } else if (id == R.id.nav_editor) {
                 if (!editorLoaded) {
                     editorView = createWebView();
-                    editorView.loadUrl(EDITOR_URL);
+                    // Passa pela rota /editor do painel, que valida a sessão
+                    // do Supabase e redireciona ao editor com access_token.
+                    editorView.loadUrl(EDITOR_LAUNCH_URL);
                     flipper.addView(editorView);
                     editorLoaded = true;
                 }
