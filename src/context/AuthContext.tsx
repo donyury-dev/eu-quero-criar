@@ -33,13 +33,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     setProfile(null);
-    if (!session?.user) return;
+    const currentSession = session;
+    const currentUser = currentSession?.user;
+    if (!currentUser) return;
 
-    async function load() {
+    async function load(user: User) {
       // Superadmin pode não ter profile; verificamos pela tabela app_admins.
-      const email = session.user.email ?? '';
+      const email = user.email ?? '';
       const [profilesRes, adminRes] = await Promise.all([
-        supabase.from('profiles').select('*').eq('user_id', session.user.id),
+        supabase.from('profiles').select('*').eq('user_id', user.id),
         supabase.from('app_admins').select('email').eq('email', email).maybeSingle(),
       ]);
 
@@ -48,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (adminRes.data) {
         setProfile({
           id: '',
-          user_id: session.user.id,
+          user_id: user.id,
           tenant_id: null as any,
           role: 'superadmin',
           name: email.split('@')[0] || 'Administrador',
@@ -62,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(real ?? data[0]);
     }
 
-    load();
+    load(currentUser);
     return () => {
       cancelled = true;
     };
