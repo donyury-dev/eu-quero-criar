@@ -9,6 +9,7 @@ import Admin from './pages/Admin';
 import Signup from './pages/Signup';
 import SuperAdmin from './pages/SuperAdmin';
 import EditorLaunch from './pages/EditorLaunch';
+import ResetPassword from './pages/ResetPassword';
 
 // Abre direto no painel se o dono já estiver logado (sessão gravada),
 // senão mostra a página de explorar.
@@ -42,6 +43,7 @@ export default function App() {
       <Route path="/demonstracao" element={<Booking demo />} />
       <Route path="/agendar/:slug" element={<Booking />} />
       <Route path="/entrar" element={<Login />} />
+      <Route path="/redefinir-senha" element={<ResetPassword />} />
       <Route path="/criar" element={<Signup />} />
       <Route path="/admin" element={<Admin />} />
       <Route path="/editor" element={<EditorLaunch />} />
