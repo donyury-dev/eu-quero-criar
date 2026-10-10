@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Check, Loader2, Store } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { CATEGORY_LABELS } from '../lib/types';
-import { LOGIN_PATTERN } from '../lib/auth';
+import { toAuthEmail, LOGIN_PATTERN } from '../lib/auth';
 
 export default function Signup() {
   const [step, setStep] = useState<'data' | 'creating' | 'error'>('data');
@@ -36,17 +36,34 @@ export default function Signup() {
     }>('register-login', {
       body: { login: clean, password },
     });
+    let authEmail: string;
     if (registerErr || registerData?.error) {
-      setSending(false);
-      return setError(registerData?.error ?? registerErr?.message ?? 'Não foi possível criar a conta.');
-    }
-    const { error: signInErr } = await supabase.auth.signInWithPassword({
-      email: registerData!.email,
-      password,
-    });
-    if (signInErr) {
-      setSending(false);
-      return setError(`Conta criada, mas não foi possível entrar: ${signInErr.message}`);
+      const reason = registerData?.error ?? registerErr?.message ?? '';
+      if (reason.toLowerCase().includes('já está em uso')) {
+        // Login já existe: se a senha bater, segue o fluxo normalmente.
+        authEmail = toAuthEmail(clean);
+        const { error: retryErr } = await supabase.auth.signInWithPassword({
+          email: authEmail,
+          password,
+        });
+        if (retryErr) {
+          setSending(false);
+          return setError('Esse login já está em uso com outra senha. Tente entrar ou escolha outro login.');
+        }
+      } else {
+        setSending(false);
+        return setError(reason || 'Não foi possível criar a conta.');
+      }
+    } else {
+      authEmail = registerData!.email;
+      const { error: firstErr } = await supabase.auth.signInWithPassword({
+        email: authEmail,
+        password,
+      });
+      if (firstErr) {
+        setSending(false);
+        return setError(`Conta criada, mas não foi possível entrar: ${firstErr.message}`);
+      }
     }
     setStep('creating');
     const { error: rpcErr } = await supabase.rpc('create_establishment', {
@@ -60,7 +77,11 @@ export default function Signup() {
     if (rpcErr) {
       const msg = rpcErr.message.toLowerCase();
       // Se o estabelecimento já foi criado em tentativa anterior, segue para o painel.
-      if (msg.includes('duplicate') || msg.includes('already exists')) {
+      if (
+        msg.includes('duplicate') ||
+        msg.includes('already exists') ||
+        msg.includes('já possui um estabelecimento')
+      ) {
         navigate('/admin', { replace: true });
         return;
       }
