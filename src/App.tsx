@@ -36,6 +36,8 @@ export default function App() {
     <Routes>
       <Route path="/" element={<RootRedirect />} />
       <Route path="/explorar" element={<Marketplace />} />
+      <Route path="/demo" element={<Booking demo />} />
+      <Route path="/demonstracao" element={<Booking demo />} />
       <Route path="/agendar/:slug" element={<Booking />} />
       <Route path="/entrar" element={<Login />} />
       <Route path="/criar" element={<Signup />} />

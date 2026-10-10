@@ -138,7 +138,7 @@ export default function Marketplace() {
               Tenha sua própria página de agendamento com sua marca, app instalável e agenda completa. Faça uma
               demonstração agora.
             </p>
-            <Link to="/entrar" className="btn-accent inline-block text-xs px-4 py-2 mt-2">
+            <Link to="/demo" className="btn-accent inline-block text-xs px-4 py-2 mt-2">
               Quero ver a demonstração
             </Link>
           </div>

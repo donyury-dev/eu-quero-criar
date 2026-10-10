@@ -9,7 +9,7 @@ import {
   Check,
   BadgeCheck,
 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, DEMO_TENANT_ID } from '../lib/supabase';
 import type { BusinessHour, Professional, Service, Tenant, Appointment, ProfessionalService } from '../lib/types';
 import { WEEKDAYS_SHORT, CATEGORY_LABELS, CATEGORY_ICONS } from '../lib/types';
 import { computeSlots } from '../lib/slots';
@@ -30,7 +30,7 @@ function iosBannerText() {
   return '📱 Instale o app: toque em Compartilhar e depois em "Adicionar à Tela de Início".';
 }
 
-export default function Booking() {
+export default function Booking({ demo = false }: { demo?: boolean }) {
   const { slug } = useParams<{ slug: string }>();
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -58,14 +58,13 @@ export default function Booking() {
   );
 
   useEffect(() => {
-    if (!slug) return;
-    supabase
-      .from('tenants')
-      .select('*')
-      .eq('slug', slug)
-      .maybeSingle()
-      .then(({ data }) => (data ? setTenant(data) : setNotFound(true)));
-  }, [slug]);
+    const request = demo
+      ? supabase.from('tenants').select('*').eq('id', DEMO_TENANT_ID).maybeSingle()
+      : slug
+        ? supabase.from('tenants').select('*').eq('slug', slug).maybeSingle()
+        : Promise.resolve({ data: null });
+    request.then(({ data }) => (data ? setTenant(data) : setNotFound(true)));
+  }, [slug, demo]);
 
   useEffect(() => {
     if (!tenant) return;
