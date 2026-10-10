@@ -14,11 +14,10 @@ import EditorLaunch from './pages/EditorLaunch';
 // senão mostra a página de explorar.
 function RootRedirect() {
   const [checking, setChecking] = useState(true);
-  const [logged, setLogged] = useState(false);
+  const { profile } = useAuth();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      setLogged(!!data.session);
       setChecking(false);
     });
   }, []);
@@ -30,7 +29,8 @@ function RootRedirect() {
       </div>
     );
   }
-  return <Navigate to={logged ? '/admin' : '/explorar'} replace />;
+  if (profile?.role === 'superadmin') return <Navigate to="/superadmin" replace />;
+  return <Navigate to={profile ? '/admin' : '/explorar'} replace />;
 }
 
 export default function App() {

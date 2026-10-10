@@ -34,17 +34,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     setProfile(null);
     if (!session?.user) return;
-    supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', session.user.id)
-      .then(({ data }) => {
-        if (cancelled || !data || data.length === 0) return;
-        // Se o usuário tem vínculo com a demo e com um estabelecimento real,
-        // o estabelecimento real tem prioridade.
-        const real = data.find((p) => p.tenant_id && p.tenant_id !== DEMO_TENANT_ID);
-        setProfile(real ?? data[0]);
-      });
+
+    async function load() {
+      // Superadmin pode não ter profile; verificamos pela tabela app_admins.
+      const email = session.user.email ?? '';
+      const [profilesRes, adminRes] = await Promise.all([
+        supabase.from('profiles').select('*').eq('user_id', session.user.id),
+        supabase.from('app_admins').select('email').eq('email', email).maybeSingle(),
+      ]);
+
+      if (cancelled) return;
+
+      if (adminRes.data) {
+        setProfile({
+          id: '',
+          user_id: session.user.id,
+          tenant_id: null as any,
+          role: 'superadmin',
+          name: email.split('@')[0] || 'Administrador',
+        });
+        return;
+      }
+
+      const data = profilesRes.data;
+      if (!data || data.length === 0) return;
+      const real = data.find((p) => p.tenant_id && p.tenant_id !== DEMO_TENANT_ID);
+      setProfile(real ?? data[0]);
+    }
+
+    load();
     return () => {
       cancelled = true;
     };

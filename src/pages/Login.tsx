@@ -16,7 +16,8 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (profile) navigate('/admin', { replace: true });
+    if (profile?.role === 'superadmin') navigate('/superadmin', { replace: true });
+    else if (profile) navigate('/admin', { replace: true });
   }, [profile, navigate]);
 
   async function handleLogin(e: React.FormEvent) {
