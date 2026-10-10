@@ -73,15 +73,15 @@ export default function Signup() {
       }
     }
     setStep('creating');
-    const { error: rpcErr } = await supabase.rpc('create_establishment', {
+    const { data: rpcData, error: rpcErr } = await supabase.rpc('create_establishment', {
       p_name: form.name.trim(),
       p_category: form.category,
       p_city: form.city.trim(),
       p_whatsapp: form.whatsapp.trim(),
       p_owner_name: form.ownerName.trim(),
     });
-    setSending(false);
     if (rpcErr) {
+      setSending(false);
       const msg = rpcErr.message.toLowerCase();
       // Se o estabelecimento já foi criado em tentativa anterior, segue para o painel.
       if (
@@ -95,6 +95,24 @@ export default function Signup() {
       setError(`Sua conta foi criada, mas houve um problema ao criar o estabelecimento: ${rpcErr.message}`);
       return;
     }
+    // Garante o vínculo do usuário com o estabelecimento criado.
+    const tenantId = Array.isArray(rpcData) ? rpcData[0]?.tenant_id : rpcData?.tenant_id;
+    if (tenantId) {
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user) {
+        const { error: profErr } = await supabase.from('profiles').insert({
+          user_id: userData.user.id,
+          tenant_id: tenantId,
+          role: 'owner',
+          name: form.ownerName.trim() || userData.user.email?.split('@')[0] || null,
+        });
+        if (profErr && !profErr.message.toLowerCase().includes('duplicate')) {
+          setSending(false);
+          return setError(`Estabelecimento criado, mas faltou vincular seu acesso: ${profErr.message}. Saia e entre de novo — se persistir, chame o suporte.`);
+        }
+      }
+    }
+    setSending(false);
     navigate('/admin', { replace: true });
   }
 
