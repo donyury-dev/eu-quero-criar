@@ -11,6 +11,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [sending, setSending] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -26,7 +27,28 @@ export default function Login() {
       password,
     });
     setSending(false);
-    if (error) setError('E-mail ou senha incorretos.');
+    if (error) {
+      setError(
+        error.message.toLowerCase().includes('email not confirmed')
+          ? 'Confirme o e-mail da conta no Supabase ou desative “Confirm email” em Authentication → Providers → Email.'
+          : 'E-mail ou senha incorretos. Se essa conta foi criada por código, use “Criar/recuperar senha” abaixo.'
+      );
+    }
+  }
+
+  async function handleResetPassword() {
+    if (!email.trim()) {
+      setError('Digite seu e-mail primeiro para receber o link de recuperação.');
+      return;
+    }
+    setSending(true);
+    setError(null);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/#/entrar`,
+    });
+    setSending(false);
+    if (error) setError(error.message);
+    else setResetSent(true);
   }
 
   async function enterDemo() {
@@ -126,6 +148,19 @@ export default function Login() {
                   Entrar com e-mail e senha
                 </button>
               </form>
+              <button
+                type="button"
+                onClick={handleResetPassword}
+                disabled={sending}
+                className="w-full text-xs text-amber-300 hover:text-amber-200 mt-3 underline underline-offset-2 disabled:opacity-50"
+              >
+                Criar ou recuperar minha senha
+              </button>
+              {resetSent && (
+                <p className="text-xs text-emerald-400 mt-3">
+                  Link enviado. Confira o e-mail e o spam para definir uma nova senha.
+                </p>
+              )}
               {error && <p className="text-xs text-rose-400 mt-3">{error}</p>}
             </div>
           </>
