@@ -104,10 +104,15 @@ export default function Admin() {
     return (
       <div className="min-h-screen grid place-items-center px-4 text-center bg-slate-900 text-white">
         <div>
-          <p className="text-lg font-semibold mb-2">Sua conta não está vinculada a um estabelecimento.</p>
-          <Link to="/entrar" className="btn-accent inline-block px-5 py-2.5 text-sm">
-            Ativar modo demonstração
-          </Link>
+          <p className="text-lg font-semibold mb-2">Sua conta ainda não tem um estabelecimento.</p>
+          <div className="flex flex-col gap-2 mt-3">
+            <Link to="/criar" className="btn-accent inline-block px-5 py-2.5 text-sm">
+              Criar meu estabelecimento
+            </Link>
+            <Link to="/entrar" className="text-xs text-white/50 hover:text-white underline underline-offset-2">
+              Ou ver a demonstração
+            </Link>
+          </div>
         </div>
       </div>
     );

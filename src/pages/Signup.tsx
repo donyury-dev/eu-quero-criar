@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Check, Loader2, Store } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 import { CATEGORY_LABELS } from '../lib/types';
 import { toAuthEmail, LOGIN_PATTERN } from '../lib/auth';
 
 export default function Signup() {
+  const { session, profile } = useAuth();
   const [step, setStep] = useState<'data' | 'creating' | 'error'>('data');
   const [form, setForm] = useState({ name: '', category: 'barbearia', city: '', whatsapp: '', ownerName: '' });
   const [login, setLogin] = useState('');
@@ -14,55 +16,60 @@ export default function Signup() {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  // Já autenticado sem estabelecimento: pula a parte de login e só cria o estabelecimento.
+  const alreadyAuthed = !!session?.user && !profile;
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate('/admin', { replace: true });
-    });
-  }, [navigate]);
+    if (session?.user && profile) navigate('/admin', { replace: true });
+  }, [session?.user, profile, navigate]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     const clean = login.trim().toLowerCase();
-    if (!LOGIN_PATTERN.test(clean)) {
-      return setError('Login inválido. Use de 3 a 30 letras, números, ponto, hífen ou _ (sem espaços).');
+    if (!alreadyAuthed) {
+      if (!LOGIN_PATTERN.test(clean)) {
+        return setError('Login inválido. Use de 3 a 30 letras, números, ponto, hífen ou _ (sem espaços).');
+      }
+      if (password.length < 6) return setError('A senha deve ter pelo menos 6 caracteres.');
     }
-    if (password.length < 6) return setError('A senha deve ter pelo menos 6 caracteres.');
     setSending(true);
     setError(null);
 
-    const { data: registerData, error: registerErr } = await supabase.functions.invoke<{
-      email: string;
-      error?: string;
-    }>('register-login', {
-      body: { login: clean, password },
-    });
-    let authEmail: string;
-    if (registerErr || registerData?.error) {
-      const reason = registerData?.error ?? registerErr?.message ?? '';
-      if (reason.toLowerCase().includes('já está em uso')) {
-        // Login já existe: se a senha bater, segue o fluxo normalmente.
-        authEmail = toAuthEmail(clean);
-        const { error: retryErr } = await supabase.auth.signInWithPassword({
+    if (!alreadyAuthed) {
+      const { data: registerData, error: registerErr } = await supabase.functions.invoke<{
+        email: string;
+        error?: string;
+      }>('register-login', {
+        body: { login: clean, password },
+      });
+      let authEmail: string;
+      if (registerErr || registerData?.error) {
+        const reason = registerData?.error ?? registerErr?.message ?? '';
+        if (reason.toLowerCase().includes('já está em uso')) {
+          // Login já existe: se a senha bater, segue o fluxo normalmente.
+          authEmail = toAuthEmail(clean);
+          const { error: retryErr } = await supabase.auth.signInWithPassword({
+            email: authEmail,
+            password,
+          });
+          if (retryErr) {
+            setSending(false);
+            return setError('Esse login já está em uso com outra senha. Tente entrar ou escolha outro login.');
+          }
+        } else {
+          setSending(false);
+          return setError(reason || 'Não foi possível criar a conta.');
+        }
+      } else {
+        authEmail = registerData!.email;
+        const { error: firstErr } = await supabase.auth.signInWithPassword({
           email: authEmail,
           password,
         });
-        if (retryErr) {
+        if (firstErr) {
           setSending(false);
-          return setError('Esse login já está em uso com outra senha. Tente entrar ou escolha outro login.');
+          return setError(`Conta criada, mas não foi possível entrar: ${firstErr.message}`);
         }
-      } else {
-        setSending(false);
-        return setError(reason || 'Não foi possível criar a conta.');
-      }
-    } else {
-      authEmail = registerData!.email;
-      const { error: firstErr } = await supabase.auth.signInWithPassword({
-        email: authEmail,
-        password,
-      });
-      if (firstErr) {
-        setSending(false);
-        return setError(`Conta criada, mas não foi possível entrar: ${firstErr.message}`);
       }
     }
     setStep('creating');
@@ -160,42 +167,59 @@ export default function Signup() {
               />
             </label>
 
-            <div className="border-t border-white/10 pt-3 space-y-3">
-              <h2 className="font-bold text-sm flex items-center gap-2">
-                <Check size={16} className="text-amber-400" /> Seu acesso (login e senha)
-              </h2>
-              <form onSubmit={handleCreate} className="space-y-3">
-                <input
-                  required
-                  autoComplete="username"
-                  value={login}
-                  onChange={(e) => setLogin(e.target.value)}
-                  placeholder="Crie seu login (ex: barbearia.do.joao)"
-                  className="w-full rounded-lg bg-white/10 border border-white/15 px-3 py-2.5 text-sm placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
-                />
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Crie uma senha (mín. 6 letras)"
-                  className="w-full rounded-lg bg-white/10 border border-white/15 px-3 py-2.5 text-sm placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
-                />
-                <p className="text-[11px] text-white/40">
-                  Sem e-mail, sem confirmação — você entra direto. Guarde bem seu login e senha.
+            {!alreadyAuthed ? (
+              <div className="border-t border-white/10 pt-3 space-y-3">
+                <h2 className="font-bold text-sm flex items-center gap-2">
+                  <Check size={16} className="text-amber-400" /> Seu acesso (login e senha)
+                </h2>
+                <form onSubmit={handleCreate} className="space-y-3">
+                  <input
+                    required
+                    autoComplete="username"
+                    value={login}
+                    onChange={(e) => setLogin(e.target.value)}
+                    placeholder="Crie seu login (ex: barbearia.do.joao)"
+                    className="w-full rounded-lg bg-white/10 border border-white/15 px-3 py-2.5 text-sm placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
+                  />
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Crie uma senha (mín. 6 letras)"
+                    className="w-full rounded-lg bg-white/10 border border-white/15 px-3 py-2.5 text-sm placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
+                  />
+                  <p className="text-[11px] text-white/40">
+                    Sem e-mail, sem confirmação — você entra direto. Guarde bem seu login e senha.
+                  </p>
+                  <button
+                    disabled={sending || form.name.trim().length < 2}
+                    className="btn-accent w-full py-3 flex items-center justify-center gap-2 disabled:opacity-40"
+                  >
+                    {sending ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+                    Criar minha conta — 7 dias grátis
+                  </button>
+                </form>
+                {error && <p className="text-xs text-rose-400 text-center">{error}</p>}
+              </div>
+            ) : (
+              <div className="border-t border-white/10 pt-3">
+                <p className="text-xs text-emerald-400 flex items-center gap-1.5">
+                  <Check size={14} /> Você já está conectado — só falta criar o estabelecimento.
                 </p>
                 <button
+                  onClick={handleCreate}
                   disabled={sending || form.name.trim().length < 2}
-                  className="btn-accent w-full py-3 flex items-center justify-center gap-2 disabled:opacity-40"
+                  className="btn-accent w-full py-3 mt-3 flex items-center justify-center gap-2 disabled:opacity-40"
                 >
                   {sending ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
-                  Criar minha conta — 7 dias grátis
+                  Criar meu estabelecimento — 7 dias grátis
                 </button>
-              </form>
-              {error && <p className="text-xs text-rose-400 text-center">{error}</p>}
-            </div>
+                {error && <p className="text-xs text-rose-400 text-center mt-3">{error}</p>}
+              </div>
+            )}
             <p className="text-[11px] text-white/40 text-center">
               Já tem conta? <Link to="/entrar" className="underline text-white/60 hover:text-white">Entrar</Link>
             </p>

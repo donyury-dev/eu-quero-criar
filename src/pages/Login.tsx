@@ -62,25 +62,24 @@ export default function Login() {
   async function enterDemo() {
     setLinking(true);
     setError(null);
-    // Tenta entrar; se a conta demo ainda não existe, cria na hora.
+    // Tenta entrar; se a conta demo ainda não existe, cria pela edge function
+    // register-login (funciona mesmo com "Confirm email" ligado no Supabase).
     let res = await supabase.auth.signInWithPassword({
       email: DEMO_LOGIN_EMAIL,
       password: DEMO_LOGIN_PASSWORD,
     });
     if (res.error) {
-      const created = await supabase.auth.signUp({
+      await supabase.functions
+        .invoke('register-login', { body: { login: 'demo', password: DEMO_LOGIN_PASSWORD } })
+        .catch(() => null);
+      res = await supabase.auth.signInWithPassword({
         email: DEMO_LOGIN_EMAIL,
         password: DEMO_LOGIN_PASSWORD,
       });
-      if (created.data.session && created.data.user) {
-        res = { data: { session: created.data.session, user: created.data.user }, error: null };
-      }
     }
-    if (res.error) {
+    if (res.error || !res.data.user) {
       setLinking(false);
-      return setError(
-        'Não foi possível abrir a demonstração. Desative "Confirm email" no Supabase (Authentication → Providers → Email) ou crie o usuário demo manualmente e tente de novo.'
-      );
+      return setError('Não foi possível abrir a demonstração. Tente novamente em instantes.');
     }
     // Assume o estabelecimento demo se ainda não tiver vínculo.
     const { data: prof } = await supabase
@@ -180,10 +179,16 @@ export default function Login() {
             {!profile && (
               <>
                 <p className="text-sm text-white/70 mt-4">
-                  Ative o modo demonstração e assuma o painel da Barbearia Nova Era:
+                  Sua conta ainda não tem um estabelecimento vinculado:
                 </p>
-                <button onClick={enterDemo} disabled={linking} className="btn-accent w-full py-3 mt-3">
-                  {linking ? 'Ativando…' : 'Assumir estabelecimento demo'}
+                <Link
+                  to="/criar"
+                  className="btn-accent w-full py-3 mt-3 flex items-center justify-center gap-2"
+                >
+                  <Store size={16} /> Criar meu estabelecimento
+                </Link>
+                <button onClick={enterDemo} disabled={linking} className="w-full text-xs text-white/50 hover:text-white mt-3 underline underline-offset-2">
+                  {linking ? 'Ativando…' : 'Ou ver a demonstração'}
                 </button>
               </>
             )}
