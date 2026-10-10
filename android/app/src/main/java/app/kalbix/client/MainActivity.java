@@ -166,6 +166,8 @@ public class MainActivity extends AppCompatActivity {
         s.setUseWideViewPort(true);
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setSupportZoom(false);
+        String defaultUA = s.getUserAgentString();
+        s.setUserAgentString(defaultUA + " KalBixApp/" + BuildConfig.VERSION_NAME);
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(wv, true);
 
