@@ -85,6 +85,7 @@ export type ClubVisit = {
 
 export function effectiveSubStatus(s: Subscription): Subscription['status'] {
   if (s.status === 'trialing' && s.trial_ends_at && new Date(s.trial_ends_at) < new Date()) return 'past_due';
+  if (s.status === 'active' && s.current_period_end && new Date(s.current_period_end) < new Date()) return 'past_due';
   return s.status;
 }
 

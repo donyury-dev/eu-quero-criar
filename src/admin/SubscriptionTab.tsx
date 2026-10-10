@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { BadgeCheck, CreditCard, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
+import { BadgeCheck, Check, Copy, CreditCard, ExternalLink, Loader2, QrCode, RefreshCw, X } from 'lucide-react';
 import { SUPABASE_URL, supabase } from '../lib/supabase';
 import { fmtMoney } from '../lib/utils';
 import { SUB_STATUS_META, effectiveSubStatus, type Subscription } from '../lib/types';
+
+type PixData = { qr_code: string | null; qr_code_base64: string | null; amount: number };
 
 function daysLeft(iso: string | null): number | null {
   if (!iso) return null;
@@ -36,6 +38,9 @@ export default function SubscriptionTab({
   blocking?: boolean;
 }) {
   const [loading, setLoading] = useState(false);
+  const [pixLoading, setPixLoading] = useState(false);
+  const [pix, setPix] = useState<PixData | null>(null);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const status = sub ? effectiveSubStatus(sub) : 'trialing';
   const meta = SUB_STATUS_META[status];
@@ -61,6 +66,40 @@ export default function SubscriptionTab({
       setError(e instanceof Error ? e.message : 'Erro inesperado.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function payPix() {
+    setPixLoading(true);
+    setError(null);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (!token) throw new Error('Sessão expirada — faça login novamente.');
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/create-pix-payment`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      const json = await res.json();
+      if (!res.ok || (!json.qr_code && !json.qr_code_base64)) throw new Error(json.error ?? 'Falha ao gerar o Pix.');
+      setPix({ qr_code: json.qr_code, qr_code_base64: json.qr_code_base64, amount: json.amount });
+      setCopied(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro inesperado.');
+    } finally {
+      setPixLoading(false);
+    }
+  }
+
+  async function copyPix() {
+    if (!pix?.qr_code) return;
+    try {
+      await navigator.clipboard.writeText(pix.qr_code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // clipboard indisponível
     }
   }
 
@@ -113,10 +152,19 @@ export default function SubscriptionTab({
         )}
 
         {['trialing', 'past_due', 'suspended', 'cancelled'].includes(status) && (
-          <button onClick={subscribe} disabled={loading} className="btn-accent w-full py-3 flex items-center justify-center gap-2">
-            {loading ? <Loader2 size={16} className="animate-spin" /> : <BadgeCheck size={16} />}
-            {status === 'trialing' ? 'Assinar agora' : 'Regularizar assinatura'}
-          </button>
+          <div className="space-y-2">
+            <button onClick={subscribe} disabled={loading} className="btn-accent w-full py-3 flex items-center justify-center gap-2">
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <BadgeCheck size={16} />}
+              {status === 'trialing' ? 'Assinar com cartão (automático)' : 'Regularizar com cartão'}
+            </button>
+            <button onClick={payPix} disabled={pixLoading} className="btn-ghost w-full py-3 flex items-center justify-center gap-2">
+              {pixLoading ? <Loader2 size={16} className="animate-spin" /> : <QrCode size={16} />}
+              Pagar 30 dias com Pix
+            </button>
+            <p className="text-[11px] text-center text-slate-400">
+              Cartão: renova automaticamente todo mês · Pix: pagamento avulso, libera 30 dias
+            </p>
+          </div>
         )}
         {status === 'active' && sub?.provider_sub_id && (
           <a
@@ -134,6 +182,49 @@ export default function SubscriptionTab({
         </button>
         {error && <p className="text-xs text-rose-600">{error}</p>}
       </div>
+
+      {pix && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setPix(null)}>
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold flex items-center gap-2">
+                <QrCode size={17} /> Pix — {fmtMoney(pix.amount)}
+              </h3>
+              <button onClick={() => setPix(null)} className="text-slate-400 hover:text-slate-600">
+                <X size={18} />
+              </button>
+            </div>
+            {pix.qr_code_base64 && (
+              <img
+                src={`data:image/png;base64,${pix.qr_code_base64}`}
+                alt="QR Code Pix"
+                className="w-56 h-56 mx-auto rounded-lg border border-slate-200"
+              />
+            )}
+            {pix.qr_code && (
+              <>
+                <textarea
+                  readOnly
+                  value={pix.qr_code}
+                  rows={4}
+                  className="w-full text-[10px] font-mono bg-slate-50 border border-slate-200 rounded-lg p-2 break-all resize-none"
+                />
+                <button onClick={copyPix} className="btn-ghost w-full py-2.5 text-sm flex items-center justify-center gap-2">
+                  {copied ? <Check size={14} /> : <Copy size={14} />}
+                  {copied ? 'Código copiado!' : 'Copiar código Pix (copia e cola)'}
+                </button>
+              </>
+            )}
+            <p className="text-xs text-slate-500 text-center">
+              Pague com o app do seu banco. O acesso é liberado em até 1 minuto após o pagamento — clique em
+              "Já paguei" para atualizar.
+            </p>
+            <button onClick={onRefresh} className="btn-accent w-full py-2.5 text-sm flex items-center justify-center gap-2">
+              <RefreshCw size={14} /> Já paguei — atualizar status
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

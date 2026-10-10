@@ -22,23 +22,27 @@ Deno.serve(async (req) => {
 
   const url = new URL(req.url);
   // Mercado Pago pode notificar por query (?type=&data.id=) ou por corpo JSON
-  let preapprovalId = url.searchParams.get('data.id') ?? url.searchParams.get('id');
+  let notifId = url.searchParams.get('data.id') ?? url.searchParams.get('id');
   let type = url.searchParams.get('type') ?? url.searchParams.get('topic');
 
-  if (!preapprovalId) {
+  if (!notifId) {
     try {
       const body = await req.json();
       type = body?.type ?? body?.topic ?? type;
-      preapprovalId = body?.data?.id ?? preapprovalId;
+      notifId = body?.data?.id ?? notifId;
     } catch {
       // corpo vazio
     }
   }
 
-  if (!preapprovalId || (type && type !== 'subscription_preapproval')) {
-    return new Response('ok'); // ignora outros tipos de notificação
-  }
+  if (!notifId) return new Response('ok');
 
+  if (type === 'payment') return handlePayment(notifId, MP_TOKEN);
+  if (!type || type === 'subscription_preapproval') return handlePreapproval(notifId, MP_TOKEN);
+  return new Response('ok');
+});
+
+async function handlePreapproval(preapprovalId: string, MP_TOKEN: string): Promise<Response> {
   try {
     const mpRes = await fetch(`https://api.mercadopago.com/preapproval/${preapprovalId}`, {
       headers: { 'Authorization': `Bearer ${MP_TOKEN}` },
@@ -75,4 +79,51 @@ Deno.serve(async (req) => {
   } catch {
     return new Response('ok');
   }
-});
+}
+
+async function handlePayment(paymentId: string, MP_TOKEN: string): Promise<Response> {
+  try {
+    const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+      headers: { 'Authorization': `Bearer ${MP_TOKEN}` },
+    });
+    const pay = await mpRes.json();
+    if (!mpRes.ok || !pay?.external_reference) return new Response('ok');
+    if (pay.status !== 'approved') return new Response('ok');
+
+    const tenantId: string = pay.external_reference;
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+
+    // Estende 30 dias a partir de agora (ou do fim do período atual, se ainda válido)
+    const { data: sub } = await supabaseAdmin
+      .from('subscriptions')
+      .select('current_period_end')
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    const now = new Date();
+    const base =
+      sub?.current_period_end && new Date(sub.current_period_end) > now
+        ? new Date(sub.current_period_end)
+        : now;
+    const end = new Date(base.getTime() + 30 * 86_400_000);
+
+    await supabaseAdmin
+      .from('subscriptions')
+      .upsert(
+        {
+          tenant_id: tenantId,
+          provider: 'mercopago',
+          status: 'active',
+          current_period_end: end.toISOString(),
+          updated_at: now.toISOString(),
+        },
+        { onConflict: 'tenant_id' },
+      );
+
+    return new Response('ok');
+  } catch {
+    return new Response('ok');
+  }
+}
