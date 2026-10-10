@@ -4,6 +4,9 @@
     <string name="tab_agenda">Agenda</string>
     <string name="tab_editor">Editor</string>
     <string name="update_title">Nova versão disponível</string>
-    <string name="update_button">Atualizar</string>
+    <string name="update_button">Baixar atualização</string>
     <string name="update_downloading">Baixando atualização…</string>
+    <string name="menu_update">Atualizar app</string>
+    <string name="drawer_open">Abrir menu</string>
+    <string name="drawer_close">Fechar menu</string>
 </resources>

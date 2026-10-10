@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/nav_agenda"
+            android:icon="@drawable/ic_nav_agenda"
+            android:title="@string/tab_agenda" />
+        <item
+            android:id="@+id/nav_editor"
+            android:icon="@drawable/ic_nav_editor"
+            android:title="@string/tab_editor" />
+    </group>
+    <item
+        android:id="@+id/nav_update"
+        android:icon="@drawable/ic_update"
+        android:title="@string/menu_update"
+        android:visible="false" />
+</menu>

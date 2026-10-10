@@ -19,6 +19,7 @@ import {
   CreditCard,
   LifeBuoy,
   ShieldCheck,
+  UserCircle,
 } from 'lucide-react';
 import { supabase, DEMO_TENANT_ID } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -34,6 +35,7 @@ import { StockTab, ClubTab } from '../admin/ExtrasTabs';
 import EditorTab from '../admin/EditorTab';
 import SupportTab from '../admin/SupportTab';
 import SubscriptionTab, { isPanelBlocked } from '../admin/SubscriptionTab';
+import AccountTab from '../admin/AccountTab';
 
 const APK_URL = 'https://github.com/donyury-dev/eu-quero-criar/releases/latest/download/kalbix.apk';
 
@@ -50,6 +52,7 @@ const TABS = [
   { key: 'editor', label: 'Editor de Vídeo', icon: Clapperboard },
   { key: 'subscription', label: 'Assinatura', icon: CreditCard },
   { key: 'support', label: 'Suporte', icon: LifeBuoy },
+  { key: 'account', label: 'Minha conta', icon: UserCircle },
 ] as const;
 
 type TabKey = (typeof TABS)[number]['key'];
@@ -260,6 +263,7 @@ export default function Admin() {
           {tab === 'editor' && <EditorTab tenant={tenant} />}
           {tab === 'subscription' && <SubscriptionTab sub={sub} onRefresh={loadSub} />}
           {tab === 'support' && <SupportTab tenantId={tenantId} />}
+          {tab === 'account' && <AccountTab />}
         </main>
       </div>
     </div>

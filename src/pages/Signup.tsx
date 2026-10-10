@@ -12,6 +12,7 @@ export default function Signup() {
   const [form, setForm] = useState({ name: '', category: 'barbearia', city: '', whatsapp: '', ownerName: '' });
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -31,6 +32,7 @@ export default function Signup() {
         return setError('Login inválido. Use de 3 a 30 letras, números, ponto, hífen ou _ (sem espaços).');
       }
       if (password.length < 6) return setError('A senha deve ter pelo menos 6 caracteres.');
+      if (password !== confirmPassword) return setError('As senhas não coincidem.');
     }
     setSending(true);
     setError(null);
@@ -207,6 +209,16 @@ export default function Signup() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Crie uma senha (mín. 6 letras)"
+                    className="w-full rounded-lg bg-white/10 border border-white/15 px-3 py-2.5 text-sm placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
+                  />
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Repita a senha"
                     className="w-full rounded-lg bg-white/10 border border-white/15 px-3 py-2.5 text-sm placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
                   />
                   <p className="text-[11px] text-white/40">

@@ -12,6 +12,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.MenuItem;
 import android.view.View;
 import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
@@ -22,17 +23,21 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.ViewFlipper;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.GravityCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
 
-import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.navigation.NavigationView;
 
 import org.json.JSONObject;
 
@@ -52,10 +57,21 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int REQ_FILE_CHOOSER = 1001;
 
-    private ViewFlipper flipper;
+    private DrawerLayout drawer;
+    private NavigationView navView;
+    private ActionBarDrawerToggle toggle;
+    private FrameLayout contentFrame;
+    private LinearLayout updateBanner;
+    private Button updateButton;
+    private TextView updateText;
+    private Toolbar toolbar;
+
     private WebView panelView;
     private WebView editorView;
     private boolean editorLoaded = false;
+    private int currentNavId = R.id.nav_agenda;
+
+    private String latestApkUrl = "";
 
     private ValueCallback<Uri[]> fileCallback;
     private DownloadManager downloadManager;
@@ -68,33 +84,37 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        flipper = findViewById(R.id.flipper);
-        BottomNavigationView nav = findViewById(R.id.bottom_nav);
+        toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+
+        drawer = findViewById(R.id.drawer_layout);
+        navView = findViewById(R.id.nav_view);
+        contentFrame = findViewById(R.id.content_frame);
+        updateBanner = findViewById(R.id.update_banner);
+        updateButton = findViewById(R.id.update_button);
+        updateText = findViewById(R.id.update_text);
+
+        toggle = new ActionBarDrawerToggle(
+                this, drawer, toolbar,
+                R.string.drawer_open, R.string.drawer_close);
+        drawer.addDrawerListener(toggle);
+        toggle.syncState();
+
         downloadManager = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
 
         panelView = createWebView();
         panelView.loadUrl(PANEL_URL);
-        flipper.addView(panelView);
+        contentFrame.addView(panelView);
 
-        nav.setOnItemSelectedListener(item -> {
-            int id = item.getItemId();
-            if (id == R.id.nav_agenda) {
-                flipper.setDisplayedChild(0);
-                return true;
-            } else if (id == R.id.nav_editor) {
-                if (!editorLoaded) {
-                    editorView = createWebView();
-                    // Passa pela rota /editor do painel, que valida a sessão
-                    // do Supabase e redireciona ao editor com access_token.
-                    editorView.loadUrl(EDITOR_LAUNCH_URL);
-                    flipper.addView(editorView);
-                    editorLoaded = true;
-                }
-                flipper.setDisplayedChild(1);
-                return true;
-            }
-            return false;
+        navView.setNavigationItemSelectedListener(item -> {
+            onNavSelected(item);
+            drawer.closeDrawer(GravityCompat.START);
+            return true;
         });
+
+        navView.setCheckedItem(R.id.nav_agenda);
+
+        updateButton.setOnClickListener(v -> downloadUpdate());
 
         registerReceiver(updateReceiver,
                 new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
@@ -103,12 +123,45 @@ public class MainActivity extends AppCompatActivity {
         checkForUpdate();
     }
 
+    private void onNavSelected(@NonNull MenuItem item) {
+        int id = item.getItemId();
+        if (id == currentNavId) return;
+        currentNavId = id;
+
+        contentFrame.removeAllViews();
+
+        if (id == R.id.nav_agenda) {
+            contentFrame.addView(panelView);
+            toolbar.setTitle("KalBix — Agenda");
+        } else if (id == R.id.nav_editor) {
+            if (!editorLoaded) {
+                editorView = createWebView();
+                // Passa pela rota /editor do painel, que valida a sessão
+                // do Supabase e redireciona ao editor com access_token.
+                editorView.loadUrl(EDITOR_LAUNCH_URL);
+                editorLoaded = true;
+            }
+            contentFrame.addView(editorView);
+            toolbar.setTitle("KalBix — Editor");
+        } else if (id == R.id.nav_update) {
+            downloadUpdate();
+            // Volta para o item anterior visualmente
+            navView.setCheckedItem(currentNavId == R.id.nav_editor ? R.id.nav_editor : R.id.nav_agenda);
+            return;
+        }
+
+        navView.setCheckedItem(id);
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     private WebView createWebView() {
         WebView wv = new WebView(this);
+        wv.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT));
         WebSettings s = wv.getSettings();
         s.setJavaScriptEnabled(true);
-        s.setDomStorageEnabled(true); // sessão/login (localStorage) do Supabase
+        s.setDomStorageEnabled(true);
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
         s.setMediaPlaybackRequiresUserGesture(false);
@@ -125,12 +178,12 @@ public class MainActivity extends AppCompatActivity {
 
                 if (scheme.equals("http") || scheme.equals("https")) {
                     if (host.equals(HOST_PANEL) || host.equals(HOST_EDITOR)) {
-                        return false; // abre no app
+                        return false;
                     }
-                    openExternally(uri); // outros sites no navegador
+                    openExternally(uri);
                     return true;
                 }
-                openExternally(uri); // whatsapp://, mailto:, etc.
+                openExternally(uri);
                 return true;
             }
         });
@@ -160,7 +213,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Downloads do editor (vídeo renderizado) e qualquer arquivo
         wv.setDownloadListener(new DownloadListener() {
             @Override
             public void onDownloadStart(String url, String userAgent, String contentDisposition,
@@ -205,25 +257,33 @@ public class MainActivity extends AppCompatActivity {
                 String latestName = json.optString("versionName", "");
                 String apkUrl = json.optString("apkUrl", "");
                 if (latestCode > BuildConfig.VERSION_CODE && !apkUrl.isEmpty()) {
+                    latestApkUrl = apkUrl;
                     main.post(() -> showUpdateBanner(latestName, apkUrl));
                 }
             } catch (Exception ignored) {
-                // sem internet ou versão indisponível: segue normal
             }
         }).start();
     }
 
     private void showUpdateBanner(String versionName, String apkUrl) {
-        LinearLayout banner = findViewById(R.id.update_banner);
-        TextView text = findViewById(R.id.update_text);
-        Button button = findViewById(R.id.update_button);
-        text.setText(getString(R.string.update_title)
+        updateText.setText(getString(R.string.update_title)
                 + (versionName.isEmpty() ? "" : " (v" + versionName + ")"));
-        banner.setVisibility(View.VISIBLE);
-        button.setOnClickListener(v -> {
-            Toast.makeText(this, R.string.update_downloading, Toast.LENGTH_SHORT).show();
-            enqueueDownload(Uri.parse(apkUrl), "KalBix — atualização", true);
-        });
+        updateBanner.setVisibility(View.VISIBLE);
+
+        MenuItem updateItem = navView.getMenu().findItem(R.id.nav_update);
+        if (updateItem != null) {
+            updateItem.setVisible(true);
+            updateItem.setTitle(getString(R.string.menu_update) + (versionName.isEmpty() ? "" : " v" + versionName));
+        }
+    }
+
+    private void downloadUpdate() {
+        if (latestApkUrl.isEmpty()) {
+            Toast.makeText(this, "Nenhuma atualização disponível no momento.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Toast.makeText(this, R.string.update_downloading, Toast.LENGTH_SHORT).show();
+        enqueueDownload(Uri.parse(latestApkUrl), "KalBix — atualização", true);
     }
 
     private void enqueueDownload(Uri uri, String title, boolean isUpdate) {
@@ -258,7 +318,6 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         if (!getPackageManager().canRequestPackageInstalls()) {
-            // Pedir permissão uma vez; o usuário volta e pode baixar de novo.
             try {
                 startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                         Uri.parse("package:" + getPackageName())));
@@ -277,7 +336,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // ------------------------------------------------------------------
-    // Upload de arquivos (vídeo para editar, música do celular)
+    // Upload de arquivos
     // ------------------------------------------------------------------
 
     @Override
@@ -303,12 +362,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // ------------------------------------------------------------------
-    // Botão voltar: navega para trás dentro do site antes de sair
+    // Botão voltar
     // ------------------------------------------------------------------
 
     @Override
     public void onBackPressed() {
-        WebView current = flipper.getDisplayedChild() == 1 && editorLoaded ? editorView : panelView;
+        if (drawer.isDrawerOpen(GravityCompat.START)) {
+            drawer.closeDrawer(GravityCompat.START);
+            return;
+        }
+        WebView current = currentNavId == R.id.nav_editor && editorLoaded ? editorView : panelView;
         if (current != null && current.canGoBack()) {
             current.goBack();
         } else {
