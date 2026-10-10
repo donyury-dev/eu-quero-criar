@@ -39,11 +39,17 @@ jobs:
             echo "::warning::Secret KALBIX_KS_PASS ausente — o APK será gerado SEM assinatura (não serve para atualizar clientes). Configure o secret e rode novamente."
             exit 0
           fi
-          openssl enc -d -aes-256-cbc -pbkdf2 \
-            -in keystore/kalbix-release.jks.enc \
-            -out app/keystore/kalbix-release.jks \
-            -pass pass:"$KS_PASS"
-          echo "KS_SIGNED=true" >> "$GITHUB_ENV"
+          mkdir -p app/keystore
+          if openssl enc -d -aes-256-cbc -pbkdf2 \
+              -in keystore/kalbix-release.jks.enc \
+              -out app/keystore/kalbix-release.jks \
+              -pass pass:"$KS_PASS"; then
+            echo "KS_SIGNED=true" >> "$GITHUB_ENV"
+            echo "Keystore destravado; o APK será assinado."
+          else
+            echo "::warning::KALBIX_KS_PASS não corresponde à chave criptografada. O build continuará sem release assinado; corrija o secret e rode novamente."
+            rm -f app/keystore/kalbix-release.jks
+          fi
 
       - name: Build do APK
         env:
