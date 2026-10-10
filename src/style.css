@@ -18,8 +18,13 @@ body {
   box-sizing: border-box;
 }
 
-.brand-accent {
-  background-color: var(--accent);
+.in-kalbix-app .tabs-mobile,
+.in-kalbix-app nav:has(> button:only-of-type) {
+  display: none !important;
+}
+
+.in-kalbix-app main {
+  padding-top: 0 !important;
 }
 
 .brand-text {

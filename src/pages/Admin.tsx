@@ -106,7 +106,7 @@ export default function Admin() {
 
   if (!user) return <Navigate to="/entrar" replace />;
 
-  if (!profile)
+  if (!profile) {
     return (
       <div className="min-h-screen grid place-items-center px-4 text-center bg-slate-900 text-white">
         <div>
@@ -122,6 +122,9 @@ export default function Admin() {
         </div>
       </div>
     );
+  }
+
+  if (profile.role === 'superadmin') return <Navigate to="/superadmin" replace />;
 
   if (!tenant)
     return (
