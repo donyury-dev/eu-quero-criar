@@ -57,7 +57,16 @@ export default function Signup() {
       p_owner_name: form.ownerName.trim(),
     });
     setSending(false);
-    if (rpcErr) return setError(rpcErr.message);
+    if (rpcErr) {
+      const msg = rpcErr.message.toLowerCase();
+      // Se o estabelecimento já foi criado em tentativa anterior, segue para o painel.
+      if (msg.includes('duplicate') || msg.includes('already exists')) {
+        navigate('/admin', { replace: true });
+        return;
+      }
+      setError(`Sua conta foi criada, mas houve um problema ao criar o estabelecimento: ${rpcErr.message}`);
+      return;
+    }
     navigate('/admin', { replace: true });
   }
 
@@ -172,10 +181,19 @@ export default function Signup() {
           </div>
         )}
 
-        {step === 'creating' && (
+        {step === 'creating' && !error && (
           <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center">
             <Loader2 size={28} className="animate-spin mx-auto text-amber-400" />
             <p className="text-sm text-white/70 mt-4">Criando seu estabelecimento…</p>
+          </div>
+        )}
+
+        {error && step !== 'data' && (
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center">
+            <p className="text-sm text-rose-400">{error}</p>
+            <button onClick={() => { setStep('data'); setError(null); }} className="btn-ghost text-xs px-4 py-2 mt-4">
+              Voltar
+            </button>
           </div>
         )}
 
