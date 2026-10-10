@@ -1,8 +1,18 @@
 import { useRef, useState } from 'react';
-import { Upload, Save, Eye, Check } from 'lucide-react';
+import { Upload, Save, Eye, Check, Link2, Copy, Share2, QrCode, ExternalLink } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { CATEGORY_LABELS, type Tenant } from '../lib/types';
 import { compressImage } from '../lib/utils';
+
+function sanitizeSlug(v: string): string {
+  return v
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-{2,}/g, '-');
+}
 
 export default function BrandingTab({ tenant, onSaved }: { tenant: Tenant; onSaved: (t: Tenant) => void }) {
   const [form, setForm] = useState({
@@ -23,6 +33,27 @@ export default function BrandingTab({ tenant, onSaved }: { tenant: Tenant; onSav
   const [saved, setSaved] = useState(false);
   const logoRef = useRef<HTMLInputElement>(null);
   const coverRef = useRef<HTMLInputElement>(null);
+  const [slug, setSlug] = useState(tenant.slug);
+  const [copied, setCopied] = useState(false);
+  const [slugErr, setSlugErr] = useState<string | null>(null);
+  const [showQr, setShowQr] = useState(false);
+
+  const bookingUrl = `${window.location.origin}/agendar/${slug || tenant.slug}`;
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(bookingUrl);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = bookingUrl;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
 
   async function pickImage(file: File, field: 'logo_url' | 'cover_url') {
     try {
@@ -35,6 +66,19 @@ export default function BrandingTab({ tenant, onSaved }: { tenant: Tenant; onSav
 
   async function save() {
     if (!form.name.trim()) return;
+    const s = slug.trim().replace(/^-+|-+$/g, '');
+    if (s.length < 3) {
+      setSlugErr('O endereço precisa ter pelo menos 3 caracteres.');
+      return;
+    }
+    if (s !== tenant.slug) {
+      const { data: taken } = await supabase.from('tenants').select('id').eq('slug', s).maybeSingle();
+      if (taken) {
+        setSlugErr('Esse endereço já está em uso — escolha outro.');
+        return;
+      }
+    }
+    setSlugErr(null);
     setSaving(true);
     const { data, error } = await supabase
       .from('tenants')
@@ -51,6 +95,7 @@ export default function BrandingTab({ tenant, onSaved }: { tenant: Tenant; onSav
         cover_url: form.cover_url.trim() || null,
         whatsapp: form.whatsapp.trim() || null,
         confirmation_message: form.confirmation_message.trim() || null,
+        slug: s,
       })
       .eq('id', tenant.id)
       .select('*')
@@ -70,6 +115,76 @@ export default function BrandingTab({ tenant, onSaved }: { tenant: Tenant; onSav
         <p className="text-xs text-slate-500 mb-4">
           Tudo aqui aparece na hora na sua página de agendamento — logo, cores e informações.
         </p>
+
+        <div className="card p-4 mb-4 border-2" style={{ borderColor: form.secondary_color }}>
+          <h3 className="font-bold text-sm flex items-center gap-1.5">
+            <Link2 size={15} /> Seu link de agendamento
+          </h3>
+          <p className="text-[11px] text-slate-500 mt-0.5 mb-3">
+            Coloque esse link na bio do Instagram, WhatsApp e redes sociais — é por ele que seus clientes agendam.
+          </p>
+          <div className="flex gap-1.5">
+            <input readOnly className="input text-xs flex-1 bg-slate-50" value={bookingUrl} onFocus={(e) => e.currentTarget.select()} />
+            <button
+              onClick={copyLink}
+              className={`text-xs font-semibold px-3.5 rounded-xl flex items-center gap-1.5 whitespace-nowrap transition ${
+                copied ? 'bg-emerald-100 text-emerald-700' : 'btn-accent'
+              }`}
+            >
+              {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? 'Copiado!' : 'Copiar'}
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1.5 mt-2.5">
+            <a href={bookingUrl} target="_blank" rel="noreferrer" className="text-[11px] font-semibold px-3 py-1.5 rounded-full border border-slate-200 hover:border-slate-400 flex items-center gap-1.5">
+              <ExternalLink size={12} /> Abrir página
+            </a>
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(`Agende online: ${bookingUrl}`)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[11px] font-semibold px-3 py-1.5 rounded-full border border-slate-200 hover:border-slate-400 flex items-center gap-1.5"
+            >
+              <Share2 size={12} /> Enviar no WhatsApp
+            </a>
+            <button
+              onClick={() => setShowQr((v) => !v)}
+              className="text-[11px] font-semibold px-3 py-1.5 rounded-full border border-slate-200 hover:border-slate-400 flex items-center gap-1.5"
+            >
+              <QrCode size={12} /> QR Code
+            </button>
+          </div>
+          {showQr && (
+            <div className="mt-3 p-3 bg-white rounded-xl border border-slate-100 flex flex-col items-center gap-2">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(bookingUrl)}`}
+                alt="QR Code do link"
+                className="w-40 h-40 rounded-lg"
+              />
+              <p className="text-[10px] text-slate-400 text-center">Cliente aponta a câmera do celular e cai direto na sua página de agendamento.</p>
+            </div>
+          )}
+          <label className="block mt-4">
+            <span className="text-xs font-semibold text-slate-600 block mb-1">Endereço personalizado</span>
+            <div className="flex items-stretch">
+              <span className="text-[11px] text-slate-400 bg-slate-50 border border-r-0 border-slate-200 rounded-l-xl px-2.5 flex items-center whitespace-nowrap overflow-hidden">
+                {window.location.origin}/agendar/
+              </span>
+              <input
+                className="input rounded-l-none text-xs"
+                value={slug}
+                onChange={(e) => {
+                  setSlugErr(null);
+                  setSlug(sanitizeSlug(e.target.value));
+                }}
+              />
+            </div>
+            {slugErr ? (
+              <span className="text-[11px] text-rose-600 mt-1 block">{slugErr}</span>
+            ) : (
+              <span className="text-[10px] text-slate-400 mt-1 block">Salve para aplicar. Atenção: se mudar o endereço, o link antigo para de funcionar.</span>
+            )}
+          </label>
+        </div>
 
         <div className="card p-4 space-y-4">
           <div className="flex items-center gap-4">
