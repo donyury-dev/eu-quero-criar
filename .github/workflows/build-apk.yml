@@ -25,6 +25,12 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Instalar plataforma Android
+        run: sdkmanager "platforms;android-34" "build-tools;34.0.0"
+
       - name: Destravar keystore de assinatura
         env:
           KS_PASS: ${{ secrets.KALBIX_KS_PASS }}
