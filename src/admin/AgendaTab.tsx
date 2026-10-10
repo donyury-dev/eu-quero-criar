@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, X, Check, Ban, UserX, RotateCcw, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, Check, Ban, UserX, RotateCcw, Loader2, MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Appointment, Professional, Service, Tenant, ProfessionalService, BusinessHour } from '../lib/types';
 import { computeSlots } from '../lib/slots';
@@ -12,6 +12,33 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
   no_show: { label: 'Faltou', cls: 'bg-rose-100 text-rose-600' },
 };
 
+type WaVars = { nome: string; empresa: string; servico: string; data: string; hora: string; prof: string };
+
+const WA_TEMPLATES: { label: string; text: (v: WaVars) => string }[] = [
+  {
+    label: 'Agendamento',
+    text: (v) => `Olá, ${v.nome}! Seu horário na ${v.empresa} está confirmado: ${v.servico} no dia ${v.data} às ${v.hora} com ${v.prof}. Até lá!`,
+  },
+  {
+    label: 'Lembrete',
+    text: (v) => `Olá, ${v.nome}! Lembrete da ${v.empresa}: você tem ${v.servico} agendado para ${v.data} às ${v.hora}. Podemos confirmar sua presença?`,
+  },
+  {
+    label: 'Confirmar presença',
+    text: (v) => `Olá, ${v.nome}! Passando da ${v.empresa} para confirmar sua presença: ${v.servico} no dia ${v.data} às ${v.hora}. Responda SIM para confirmar ou nos avise se precisar remarcar.`,
+  },
+  {
+    label: 'Atraso',
+    text: (v) => `Olá, ${v.nome}! Da ${v.empresa}: estamos com um pequeno atraso e seu atendimento às ${v.hora} pode começar alguns minutos depois. Agradecemos a compreensão!`,
+  },
+];
+
+export function waLink(phone: string, text: string): string {
+  const digits = phone.replace(/\D/g, '');
+  const full = digits.length <= 11 ? `55${digits}` : digits;
+  return `https://wa.me/${full}?text=${encodeURIComponent(text)}`;
+}
+
 export default function AgendaTab({ tenant }: { tenant: Tenant }) {
   const [date, setDate] = useState(todayStr());
   const [professionals, setProfessionals] = useState<Professional[]>([]);
@@ -21,6 +48,7 @@ export default function AgendaTab({ tenant }: { tenant: Tenant }) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
+  const [waAppt, setWaAppt] = useState<Appointment | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -159,6 +187,14 @@ export default function AgendaTab({ tenant }: { tenant: Tenant }) {
                               <RotateCcw size={11} /> Reabrir
                             </button>
                           )}
+                          {a.customer_phone && (
+                            <button
+                              onClick={() => setWaAppt(a)}
+                              className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-[#25D366]/10 text-[#128C4A] hover:bg-[#25D366]/20 flex items-center gap-1 ml-auto"
+                            >
+                              <MessageCircle size={11} /> WhatsApp
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -185,6 +221,110 @@ export default function AgendaTab({ tenant }: { tenant: Tenant }) {
           }}
         />
       )}
+
+      {waAppt && (
+        <WhatsAppModal
+          appt={waAppt}
+          serviceName={services.find((s) => s.id === waAppt.service_id)?.name ?? ''}
+          professionalName={professionals.find((p) => p.id === waAppt.professional_id)?.name ?? ''}
+          tenant={tenant}
+          onClose={() => setWaAppt(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function WhatsAppModal({
+  appt,
+  serviceName,
+  professionalName,
+  tenant,
+  onClose,
+}: {
+  appt: Appointment;
+  serviceName: string;
+  professionalName: string;
+  tenant: Tenant;
+  onClose: () => void;
+}) {
+  const vars: WaVars = {
+    nome: appt.customer_name.split(' ')[0],
+    empresa: tenant.name,
+    servico: serviceName,
+    data: fmtDateBR(appt.appointment_date),
+    hora: fmtTime(appt.start_time),
+    prof: professionalName,
+  };
+  const templates = [...WA_TEMPLATES];
+  if (tenant.confirmation_message?.trim()) {
+    templates.push({
+      label: 'Mensagem personalizada',
+      text: () =>
+        tenant
+          .confirmation_message!.replace(/\{nome\}/gi, vars.nome)
+          .replace(/\{empresa\}/gi, vars.empresa)
+          .replace(/\{servico\}/gi, vars.servico)
+          .replace(/\{data\}/gi, vars.data)
+          .replace(/\{hora\}/gi, vars.hora)
+          .replace(/\{profissional\}/gi, vars.prof),
+    });
+  }
+  const [templateIdx, setTemplateIdx] = useState(0);
+  const [text, setText] = useState(templates[0].text(vars));
+
+  const pickTemplate = (i: number) => {
+    setTemplateIdx(i);
+    setText(templates[i].text(vars));
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm grid place-items-center p-4" onClick={onClose}>
+      <div className="card w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="font-bold flex items-center gap-1.5">
+              <MessageCircle size={16} className="text-[#25D366]" /> WhatsApp
+            </h3>
+            <p className="text-[11px] text-slate-500">
+              {appt.customer_name} · {appt.customer_phone}
+            </p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {templates.map((t, i) => (
+            <button
+              key={t.label}
+              onClick={() => pickTemplate(i)}
+              className={`text-[11px] font-semibold px-2.5 py-1.5 rounded-full border transition ${
+                i === templateIdx ? 'brand-accent border-transparent' : 'hover:border-slate-400 text-slate-600'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <textarea
+          className="input min-h-32 text-sm leading-relaxed"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={5}
+        />
+        <a
+          href={waLink(appt.customer_phone ?? '', text)}
+          target="_blank"
+          rel="noreferrer"
+          className="w-full mt-3 py-2.5 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#1fb959] transition"
+        >
+          <MessageCircle size={15} /> Abrir WhatsApp
+        </a>
+        <p className="text-[10px] text-slate-400 mt-2 text-center">
+          A mensagem sai do seu WhatsApp já preenchida — só apertar enviar.
+        </p>
+      </div>
     </div>
   );
 }
