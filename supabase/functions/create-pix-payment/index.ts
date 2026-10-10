@@ -52,6 +52,48 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const priceCents = sub?.price_cents ?? 4990;
 
+    // mode=checkout → abre o checkout do Mercado Pago (débito, boleto etc.)
+    let mode = 'pix';
+    try {
+      const body = await req.json();
+      if (body?.mode) mode = String(body.mode);
+    } catch {
+      // corpo vazio → pix
+    }
+
+    if (mode === 'checkout') {
+      const prefRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${MP_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          items: [
+            {
+              title: 'KalBix Agenda — Plano Mensal (30 dias)',
+              quantity: 1,
+              unit_price: Math.round(priceCents) / 100,
+              currency_id: 'BRL',
+            },
+          ],
+          external_reference: tenantId,
+          back_url: 'https://kalbix.vercel.app/admin',
+          notification_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/mp-webhook`,
+          payment_methods: {
+            excluded_payment_types: [{ id: 'credit_card' }],
+          },
+        }),
+      });
+      const pref = await prefRes.json();
+      if (!prefRes.ok || !pref.init_point) {
+        throw new Error(`Mercado Pago: ${pref.message ?? 'falha ao criar o checkout'}`);
+      }
+      return new Response(JSON.stringify({ init_point: pref.init_point }), {
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+
     const mpRes = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
       headers: {

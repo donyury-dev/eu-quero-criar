@@ -92,6 +92,29 @@ export default function SubscriptionTab({
     }
   }
 
+  async function payCheckout() {
+    setPixLoading(true);
+    setError(null);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (!token) throw new Error('Sessão expirada — faça login novamente.');
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/create-pix-payment`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'checkout' }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.init_point) throw new Error(json.error ?? 'Falha ao abrir o checkout.');
+      window.open(json.init_point as string, '_blank', 'noopener');
+      setTimeout(onRefresh, 60_000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro inesperado.');
+    } finally {
+      setPixLoading(false);
+    }
+  }
+
   async function copyPix() {
     if (!pix?.qr_code) return;
     try {
@@ -161,8 +184,12 @@ export default function SubscriptionTab({
               {pixLoading ? <Loader2 size={16} className="animate-spin" /> : <QrCode size={16} />}
               Pagar 30 dias com Pix
             </button>
+            <button onClick={payCheckout} disabled={pixLoading} className="btn-ghost w-full py-3 flex items-center justify-center gap-2">
+              {pixLoading ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />}
+              Pagar com débito ou boleto
+            </button>
             <p className="text-[11px] text-center text-slate-400">
-              Cartão: renova automaticamente todo mês · Pix: pagamento avulso, libera 30 dias
+              Cartão de crédito: renova automaticamente todo mês · Pix e débito: pagamento avulso, libera 30 dias
             </p>
           </div>
         )}
