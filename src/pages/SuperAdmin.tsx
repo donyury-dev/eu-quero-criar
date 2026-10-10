@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Send,
   ShieldCheck,
+  Trash2,
   UserPlus,
   Users,
   Wallet,
@@ -251,6 +252,7 @@ type AuthUserRow = {
 };
 
 function AccessTab() {
+  const { user } = useAuth();
   const [rows, setRows] = useState<AuthUserRow[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [query, setQuery] = useState('');
@@ -308,6 +310,17 @@ function AccessTab() {
     setPwdFor(null);
     setNewPwd('');
     setError(null);
+  }
+
+  async function deleteUser(u: AuthUserRow) {
+    if (!confirm(`Excluir o acesso "${displayLogin(u.email)}"? O usuário não conseguirá mais entrar.`)) return;
+    setError(null);
+    const { error: fnErr } = await supabase.functions.invoke('admin-users', {
+      method: 'POST',
+      body: { action: 'delete', user_id: u.id },
+    });
+    if (fnErr) return setError(fnErr.message);
+    load();
   }
 
   const filtered = useMemo(
@@ -419,9 +432,16 @@ function AccessTab() {
                       </button>
                     </div>
                   ) : (
-                    <button onClick={() => { setPwdFor(u.id); setNewPwd(''); }} className="btn-ghost text-xs px-3 py-1.5 flex items-center gap-1.5">
-                      <KeyRound size={13} /> Trocar senha
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => { setPwdFor(u.id); setNewPwd(''); }} className="btn-ghost text-xs px-3 py-1.5 flex items-center gap-1.5">
+                        <KeyRound size={13} /> Trocar senha
+                      </button>
+                      {u.id !== user?.id && (
+                        <button onClick={() => deleteUser(u)} className="btn-ghost text-xs px-2.5 py-1.5 text-rose-600 flex items-center gap-1" title="Excluir acesso">
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

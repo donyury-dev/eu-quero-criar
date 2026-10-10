@@ -97,6 +97,16 @@ Deno.serve(async (req) => {
         if (error) return json({ error: error.message }, 500);
         return json({ ok: true, id: data.user?.id });
       }
+      if (body?.action === 'delete' && body.user_id) {
+        if (String(body.user_id) === userData.user.id) {
+          return json({ error: 'Você não pode excluir o seu próprio acesso.' }, 400);
+        }
+        // Remove vínculos de perfil antes de excluir o usuário de autenticação.
+        await supabaseAdmin.from('profiles').delete().eq('user_id', String(body.user_id));
+        const { error } = await supabaseAdmin.auth.admin.deleteUser(String(body.user_id));
+        if (error) return json({ error: error.message }, 500);
+        return json({ ok: true });
+      }
       return json({ error: 'Ação inválida.' }, 400);
     }
 
