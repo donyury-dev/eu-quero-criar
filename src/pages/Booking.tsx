@@ -10,7 +10,7 @@ import {
   BadgeCheck,
 } from 'lucide-react';
 import { supabase, DEMO_TENANT_ID } from '../lib/supabase';
-import type { BusinessHour, Professional, Service, Tenant, Appointment, ProfessionalService } from '../lib/types';
+import type { BusinessHour, Professional, Service, Tenant, Appointment, ProfessionalService, ScheduleException } from '../lib/types';
 import { WEEKDAYS_SHORT, CATEGORY_LABELS, CATEGORY_ICONS } from '../lib/types';
 import { computeSlots } from '../lib/slots';
 import { addDays, fmtDateBR, fmtMoney, fmtTime, todayStr, weekdayOf } from '../lib/utils';
@@ -38,6 +38,7 @@ export default function Booking({ demo = false }: { demo?: boolean }) {
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [profServices, setProfServices] = useState<ProfessionalService[]>([]);
   const [hours, setHours] = useState<BusinessHour[]>([]);
+  const [exceptions, setExceptions] = useState<ScheduleException[]>([]);
 
   const [step, setStep] = useState<Step>('service');
   const [service, setService] = useState<Service | null>(null);
@@ -74,11 +75,13 @@ export default function Booking({ demo = false }: { demo?: boolean }) {
       supabase.from('professionals').select('*').eq('tenant_id', tid).eq('active', true).order('sort_order'),
       supabase.from('professional_services').select('*').eq('tenant_id', tid),
       supabase.from('business_hours').select('*').eq('tenant_id', tid),
-    ]).then(([s, p, ps, h]) => {
+      supabase.from('schedule_exceptions').select('*').eq('tenant_id', tid),
+    ]).then(([s, p, ps, h, ex]) => {
       setServices(s.data ?? []);
       setProfessionals(p.data ?? []);
       setProfServices(ps.data ?? []);
       setHours(h.data ?? []);
+      setExceptions(ex.data ?? []);
     });
   }, [tenant]);
 
@@ -101,10 +104,11 @@ export default function Booking({ demo = false }: { demo?: boolean }) {
         dateStr: date,
         durationMin: service.duration_min,
         busy,
+        exception: exceptions.find((e) => e.date === date) ?? null,
       })
     );
     setSlotLoading(false);
-  }, [tenant, service, professional, date, hours]);
+  }, [tenant, service, professional, date, hours, exceptions]);
 
   useEffect(() => {
     if (step === 'time') setTime(null);
@@ -406,7 +410,7 @@ export default function Booking({ demo = false }: { demo?: boolean }) {
             <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
               {dateStrip.map((d) => {
                 const wd = weekdayOf(d);
-                const closed = hoursForClosed(hours, wd);
+                const closed = isClosedOn(hours, exceptions, d);
                 return (
                   <button
                     key={d}
@@ -567,6 +571,17 @@ export default function Booking({ demo = false }: { demo?: boolean }) {
 function hoursForClosed(hours: BusinessHour[], weekday: number): boolean {
   const h = hours.find((x) => x.professional_id === null && x.weekday === weekday);
   return !h || h.closed;
+}
+
+/** Dia fechado considerando exceções pontuais (vencem a base semanal). */
+function isClosedOn(
+  hours: BusinessHour[],
+  exceptions: ScheduleException[],
+  dateStr: string
+): boolean {
+  const ex = exceptions.find((e) => e.date === dateStr);
+  if (ex) return ex.closed;
+  return hoursForClosed(hours, weekdayOf(dateStr));
 }
 
 function BackButton({ onClick }: { onClick: () => void }) {

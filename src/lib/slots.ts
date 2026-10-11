@@ -1,4 +1,4 @@
-import type { BusinessHour } from './types';
+import type { BusinessHour, ScheduleException } from './types';
 import { timeToMinutes, minutesToTime, nowMinutes } from './utils';
 
 export function hoursFor(
@@ -19,6 +19,8 @@ export type SlotInput = {
   durationMin: number;
   busy: { start_time: string; end_time: string }[]; // active appointments for this professional
   stepMin?: number;
+  // Exceção pontual do dia (dia fechado ou horário diferente da base semanal).
+  exception?: ScheduleException | null;
 };
 
 export function computeSlots({
@@ -29,8 +31,23 @@ export function computeSlots({
   durationMin,
   busy,
   stepMin = 15,
+  exception,
 }: SlotInput): string[] {
-  const h = hoursFor(hours, professionalId, weekday);
+  let h = hoursFor(hours, professionalId, weekday);
+  if (exception) {
+    if (exception.closed) return [];
+    h = {
+      id: `exception-${exception.id}`,
+      tenant_id: exception.tenant_id,
+      professional_id: professionalId,
+      weekday,
+      start_time: exception.start_time ?? h?.start_time ?? '09:00',
+      end_time: exception.end_time ?? h?.end_time ?? '19:00',
+      break_start: exception.break_start ?? null,
+      break_end: exception.break_end ?? null,
+      closed: false,
+    };
+  }
   if (!h || h.closed) return [];
   const open = timeToMinutes(h.start_time);
   const close = timeToMinutes(h.end_time);

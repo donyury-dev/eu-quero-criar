@@ -144,6 +144,18 @@ export type BusinessHour = {
   closed: boolean;
 };
 
+// Exceção pontual: um dia específico fechado ou com horário diferente da base semanal.
+export type ScheduleException = {
+  id: string;
+  tenant_id: string;
+  date: string; // YYYY-MM-DD
+  closed: boolean;
+  start_time: string | null;
+  end_time: string | null;
+  break_start: string | null;
+  break_end: string | null;
+};
+
 export type Customer = {
   id: string;
   tenant_id: string;

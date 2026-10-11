@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Save, Clock } from 'lucide-react';
+import { Loader2, Save, Clock, CalendarOff, Trash2, Plus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { BusinessHour, Professional, Tenant } from '../lib/types';
+import type { BusinessHour, Professional, ScheduleException, Tenant } from '../lib/types';
 import { WEEKDAYS } from '../lib/types';
 
 type DayRow = {
@@ -30,6 +30,25 @@ export default function HoursTab({ tenant }: { tenant: Tenant }) {
   const [rows, setRows] = useState<DayRow[]>(DEFAULT_ROWS);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  // Exceções: dias específicos fechados ou com horário diferente da base.
+  const [dayExceptions, setDayExceptions] = useState<ScheduleException[]>([]);
+  const [exDate, setExDate] = useState('');
+  const [exMode, setExMode] = useState<'closed' | 'custom'>('closed');
+  const [exStart, setExStart] = useState('09:00');
+  const [exEnd, setExEnd] = useState('18:00');
+  const [exBreakStart, setExBreakStart] = useState('');
+  const [exBreakEnd, setExBreakEnd] = useState('');
+  const [exSaving, setExSaving] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from('schedule_exceptions')
+      .select('*')
+      .eq('tenant_id', tenant.id)
+      .order('date')
+      .then(({ data }) => setDayExceptions(data ?? []));
+  }, [tenant.id]);
 
   useEffect(() => {
     Promise.all([
@@ -144,6 +163,34 @@ export default function HoursTab({ tenant }: { tenant: Tenant }) {
       </div>
     );
 
+  async function addException() {
+    if (!exDate) return;
+    setExSaving(true);
+    const payload = {
+      tenant_id: tenant.id,
+      date: exDate,
+      closed: exMode === 'closed',
+      start_time: exMode === 'custom' ? exStart || '09:00' : null,
+      end_time: exMode === 'custom' ? exEnd || '19:00' : null,
+      break_start: exMode === 'custom' && exBreakStart ? exBreakStart : null,
+      break_end: exMode === 'custom' && exBreakEnd ? exBreakEnd : null,
+    };
+    await supabase.from('schedule_exceptions').upsert(payload, { onConflict: 'tenant_id,date' });
+    const { data } = await supabase
+      .from('schedule_exceptions')
+      .select('*')
+      .eq('tenant_id', tenant.id)
+      .order('date');
+    setDayExceptions(data ?? []);
+    setExDate('');
+    setExSaving(false);
+  }
+
+  async function removeException(id: string) {
+    await supabase.from('schedule_exceptions').delete().eq('id', id);
+    setDayExceptions((prev) => prev.filter((e) => e.id !== id));
+  }
+
   return (
     <div>
       <h2 className="font-bold">Horários de funcionamento</h2>
@@ -222,6 +269,102 @@ export default function HoursTab({ tenant }: { tenant: Tenant }) {
           Dias sem horário próprio para {current.name} usam automaticamente o padrão do estabelecimento.
         </p>
       )}
+
+      {/* Dias específicos (exceções) */}
+      <div className="mt-8 pt-6 border-t border-slate-100">
+        <h3 className="font-bold flex items-center gap-2">
+          <CalendarOff size={16} className="text-slate-400" /> Dias específicos
+        </h3>
+        <p className="text-xs text-slate-500 mb-4">
+          Para quem abre e fecha em dias diferentes da semana: marque um dia pontual como fechado
+          (feriado, folga) ou abra em um horário diferente, com almoço próprio. O dia específico vale
+          mais que o padrão semanal.
+        </p>
+
+        <div className="card p-4 mb-4 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="date"
+              className="input !w-auto"
+              value={exDate}
+              onChange={(e) => setExDate(e.target.value)}
+            />
+            <label className="flex items-center gap-1.5 text-xs text-slate-600">
+              <input
+                type="radio"
+                name="ex-mode"
+                className="accent-amber-500"
+                checked={exMode === 'closed'}
+                onChange={() => setExMode('closed')}
+              />
+              Fechado o dia todo
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-slate-600">
+              <input
+                type="radio"
+                name="ex-mode"
+                className="accent-amber-500"
+                checked={exMode === 'custom'}
+                onChange={() => setExMode('custom')}
+              />
+              Abrir em horário diferente
+            </label>
+          </div>
+          {exMode === 'custom' && (
+            <div className="flex flex-wrap items-center gap-2">
+              <input type="time" className="input !w-28" value={exStart} onChange={(e) => setExStart(e.target.value)} />
+              <span className="text-slate-400 text-xs">até</span>
+              <input type="time" className="input !w-28" value={exEnd} onChange={(e) => setExEnd(e.target.value)} />
+              <span className="text-slate-400 text-xs ml-2">almoço</span>
+              <input type="time" className="input !w-24" value={exBreakStart} onChange={(e) => setExBreakStart(e.target.value)} />
+              <span className="text-slate-400 text-xs">até</span>
+              <input type="time" className="input !w-24" value={exBreakEnd} onChange={(e) => setExBreakEnd(e.target.value)} />
+            </div>
+          )}
+          <button
+            onClick={addException}
+            disabled={!exDate || exSaving}
+            className="btn-accent text-xs px-4 py-2 flex items-center gap-1.5 disabled:opacity-50"
+          >
+            {exSaving ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+            {exSaving ? 'Salvando…' : 'Adicionar dia'}
+          </button>
+        </div>
+
+        {dayExceptions.length === 0 ? (
+          <p className="text-xs text-slate-400">Nenhum dia específico cadastrado — a agenda segue a base semanal.</p>
+        ) : (
+          <div className="card divide-y divide-slate-100 overflow-hidden">
+            {dayExceptions.map((e) => {
+              const d = new Date(e.date + 'T00:00:00');
+              const label = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+              return (
+                <div key={e.id} className="flex items-center justify-between gap-2 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold capitalize">{label}</p>
+                    <p className="text-xs text-slate-500">
+                      {e.closed
+                        ? 'Fechado o dia todo'
+                        : `Abre ${e.start_time?.slice(0, 5)}–${e.end_time?.slice(0, 5)}${
+                            e.break_start && e.break_end
+                              ? ` · almoço ${e.break_start.slice(0, 5)}–${e.break_end.slice(0, 5)}`
+                              : ''
+                          }`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => removeException(e.id)}
+                    className="p-2 text-slate-300 hover:text-rose-500 shrink-0"
+                    title="Remover dia específico"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

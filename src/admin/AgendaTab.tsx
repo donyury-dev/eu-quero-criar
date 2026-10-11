@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus, X, Check, Ban, UserX, RotateCcw, Loader2, MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { Appointment, Professional, Service, Tenant, ProfessionalService, BusinessHour } from '../lib/types';
+import type { Appointment, Professional, Service, Tenant, ProfessionalService, BusinessHour, ScheduleException } from '../lib/types';
 import { computeSlots } from '../lib/slots';
 import { addDays, fmtDateBR, fmtMoney, fmtTime, timeToMinutes, minutesToTime, nowMinutes, todayStr, weekdayOf } from '../lib/utils';
 
@@ -45,6 +45,7 @@ export default function AgendaTab({ tenant }: { tenant: Tenant }) {
   const [services, setServices] = useState<Service[]>([]);
   const [profServices, setProfServices] = useState<ProfessionalService[]>([]);
   const [hours, setHours] = useState<BusinessHour[]>([]);
+  const [exceptions, setExceptions] = useState<ScheduleException[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
@@ -52,7 +53,7 @@ export default function AgendaTab({ tenant }: { tenant: Tenant }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [p, s, ps, h, a] = await Promise.all([
+    const [p, s, ps, h, a, ex] = await Promise.all([
       supabase.from('professionals').select('*').eq('tenant_id', tenant.id).eq('active', true).order('sort_order'),
       supabase.from('services').select('*').eq('tenant_id', tenant.id).order('sort_order'),
       supabase.from('professional_services').select('*').eq('tenant_id', tenant.id),
@@ -63,11 +64,13 @@ export default function AgendaTab({ tenant }: { tenant: Tenant }) {
         .eq('tenant_id', tenant.id)
         .eq('appointment_date', date)
         .order('start_time'),
+      supabase.from('schedule_exceptions').select('*').eq('tenant_id', tenant.id),
     ]);
     setProfessionals(p.data ?? []);
     setServices(s.data ?? []);
     setProfServices(ps.data ?? []);
     setHours(h.data ?? []);
+    setExceptions(ex.data ?? []);
     setAppointments(a.data ?? []);
     setLoading(false);
   }, [tenant.id, date]);
@@ -214,6 +217,7 @@ export default function AgendaTab({ tenant }: { tenant: Tenant }) {
           services={services.filter((s) => s.active)}
           profServices={profServices}
           hours={hours}
+          exceptions={exceptions}
           onClose={() => setShowNew(false)}
           onCreated={() => {
             setShowNew(false);
@@ -336,6 +340,7 @@ function NewAppointmentModal({
   services,
   profServices,
   hours,
+  exceptions,
   onClose,
   onCreated,
 }: {
@@ -345,6 +350,7 @@ function NewAppointmentModal({
   services: Service[];
   profServices: ProfessionalService[];
   hours: BusinessHour[];
+  exceptions: ScheduleException[];
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -386,10 +392,11 @@ function NewAppointmentModal({
           dateStr: date,
           durationMin: service.duration_min,
           busy: (data ?? []).map((d) => ({ start_time: d.start_time, end_time: d.end_time })),
+          exception: exceptions.find((e) => e.date === date) ?? null,
         })
       );
     })();
-  }, [service, professionalId, date, tenantId, hours, allowedPros.length]);
+  }, [service, professionalId, date, tenantId, hours, exceptions, allowedPros.length]);
 
   async function save() {
     if (!service) return setError('Escolha um serviço.');
