@@ -38,7 +38,8 @@ export default function BrandingTab({ tenant, onSaved }: { tenant: Tenant; onSav
   const [slugErr, setSlugErr] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
 
-  const bookingUrl = `${window.location.origin}/agendar/${slug || tenant.slug}`;
+  // HashRouter: o link compartilhável precisa do "#/" para abrir a rota certa.
+  const bookingUrl = `${window.location.origin}/#/agendar/${slug || tenant.slug}`;
 
   async function copyLink() {
     try {

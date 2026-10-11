@@ -42,6 +42,7 @@ export default function App() {
       <Route path="/demo" element={<Booking demo />} />
       <Route path="/demonstracao" element={<Booking demo />} />
       <Route path="/agendar/:slug" element={<Booking />} />
+      <Route path="/n/:slug" element={<Booking />} />
       <Route path="/entrar" element={<Login />} />
       <Route path="/redefinir-senha" element={<ResetPassword />} />
       <Route path="/criar" element={<Signup />} />
