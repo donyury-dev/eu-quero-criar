@@ -101,6 +101,35 @@ export default function Admin() {
     loadSub();
   }, [loadTenant, loadSub]);
 
+  // Notificações de novos agendamentos dentro do APK:
+  // o site verifica a cada 30s e avisa a ponte nativa (KalbixBridge).
+  useEffect(() => {
+    const bridge = (window as unknown as { KalbixBridge?: { notify?: (t: string, b: string) => void } }).KalbixBridge;
+    if (!bridge?.notify || !tenant?.id) return;
+    let lastCheck = new Date().toISOString();
+    const tick = async () => {
+      const since = lastCheck;
+      lastCheck = new Date().toISOString();
+      try {
+        const { data } = await supabase
+          .from('appointments')
+          .select('customer_name, appointment_date, start_time')
+          .eq('tenant_id', tenant.id)
+          .gt('created_at', since);
+        for (const appt of data ?? []) {
+          bridge.notify?.(
+            'Novo agendamento',
+            `${appt.customer_name} — ${appt.appointment_date} às ${String(appt.start_time).slice(0, 5)}`,
+          );
+        }
+      } catch {
+        // silencioso: a próxima tentativa acontece no próximo ciclo
+      }
+    };
+    const interval = setInterval(tick, 30000);
+    return () => clearInterval(interval);
+  }, [tenant?.id]);
+
   // Bloqueio: painel só quando a assinatura está ok (demo nunca bloqueia)
   const panelBlocked = !isDemo && subLoaded && (tenant?.is_blocked || isPanelBlocked(sub));
 

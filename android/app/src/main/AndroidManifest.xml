@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Notificações de novos agendamentos (Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Mantém a tela acesa durante upload/render no editor (Wake Lock API) -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Permite instalar atualizações do próprio app -->

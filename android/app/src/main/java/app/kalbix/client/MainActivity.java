@@ -1,9 +1,15 @@
 package app.kalbix.client;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.DownloadManager;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.Uri;
@@ -16,6 +22,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
+import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -33,6 +40,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
@@ -56,6 +64,8 @@ public class MainActivity extends AppCompatActivity {
     private static final String HOST_EDITOR = "kalbix-editor.onrender.com";
 
     private static final int REQ_FILE_CHOOSER = 1001;
+    private static final int REQ_NOTIF_PERMISSION = 1002;
+    private static final String CHANNEL_BOOKINGS = "agendamentos";
 
     private DrawerLayout drawer;
     private NavigationView navView;
@@ -103,8 +113,17 @@ public class MainActivity extends AppCompatActivity {
         downloadManager = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
 
         panelView = createWebView();
+        panelView.addJavascriptInterface(new KalbixBridge(), "KalbixBridge");
         panelView.loadUrl(PANEL_URL);
         contentFrame.addView(panelView);
+
+        createNotificationChannel();
+        if (Build.VERSION.SDK_INT >= 33 &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                        != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIF_PERMISSION);
+        }
 
         navView.setNavigationItemSelectedListener(item -> {
             onNavSelected(item);
@@ -141,16 +160,28 @@ public class MainActivity extends AppCompatActivity {
             navView.setCheckedItem(id);
             return;
         }
+        if (id == R.id.nav_agenda) {
+            boolean alreadyAgenda = currentNavId == R.id.nav_agenda;
+            currentNavId = id;
+            contentFrame.removeAllViews();
+            contentFrame.addView(panelView);
+            toolbar.setTitle("KalBix — Agenda");
+            // Recarrega o painel se saímos dele (ou caiu em outra tela, ex. login),
+            // senão o WebView continuaria mostrando a última aba/URL visitada.
+            String panelUrl = panelView.getUrl() == null ? "" : panelView.getUrl();
+            if (!alreadyAgenda || !panelUrl.startsWith(PANEL_URL + "#/admin")) {
+                panelView.loadUrl(PANEL_URL + "#/admin");
+            }
+            navView.setCheckedItem(id);
+            return;
+        }
         if (id == currentNavId) return;
         int previousNavId = currentNavId;
         currentNavId = id;
 
         contentFrame.removeAllViews();
 
-        if (id == R.id.nav_agenda) {
-            contentFrame.addView(panelView);
-            toolbar.setTitle("KalBix — Agenda");
-        } else if (id == R.id.nav_editor) {
+        if (id == R.id.nav_editor) {
             if (!editorLoaded) {
                 editorView = createWebView();
                 // Passa pela rota /editor do painel, que valida a sessão
@@ -275,6 +306,78 @@ public class MainActivity extends AppCompatActivity {
             startActivity(new Intent(Intent.ACTION_VIEW, uri));
         } catch (Exception ignored) {
             Toast.makeText(this, "Nenhum app encontrado para abrir este link.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Notificações de novos agendamentos (bridge com o site)
+    // ------------------------------------------------------------------
+
+    private String[] pendingNotification;
+
+    private class KalbixBridge {
+        @JavascriptInterface
+        public void notify(String title, String body) {
+            main.post(() -> showBookingNotification(
+                    title == null ? "KalBix" : title,
+                    body == null ? "" : body));
+        }
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= 26) {
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_BOOKINGS,
+                    getString(R.string.notif_channel_name),
+                    NotificationManager.IMPORTANCE_HIGH);
+            channel.setDescription(getString(R.string.notif_channel_desc));
+            channel.enableVibration(true);
+            NotificationManager nm = getSystemService(NotificationManager.class);
+            if (nm != null) nm.createNotificationChannel(channel);
+        }
+    }
+
+    private void showBookingNotification(String title, String body) {
+        if (Build.VERSION.SDK_INT >= 33 &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                        != PackageManager.PERMISSION_GRANTED) {
+            pendingNotification = new String[]{title, body};
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIF_PERMISSION);
+            return;
+        }
+        postNotification(title, body);
+    }
+
+    private void postNotification(String title, String body) {
+        try {
+            NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            Notification.Builder b = Build.VERSION.SDK_INT >= 26
+                    ? new Notification.Builder(this, CHANNEL_BOOKINGS)
+                    : new Notification.Builder(this);
+            b.setSmallIcon(R.mipmap.ic_launcher)
+                    .setContentTitle(title)
+                    .setContentText(body)
+                    .setStyle(new Notification.BigTextStyle().bigText(body))
+                    .setAutoCancel(true);
+            Intent open = new Intent(this, MainActivity.class);
+            open.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            b.setContentIntent(PendingIntent.getActivity(this, 0, open,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+            if (nm != null) nm.notify((int) (System.currentTimeMillis() & 0x7fffffff), b.build());
+        } catch (Exception ignored) {
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQ_NOTIF_PERMISSION && pendingNotification != null) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                postNotification(pendingNotification[0], pendingNotification[1]);
+            }
+            pendingNotification = null;
         }
     }
 
