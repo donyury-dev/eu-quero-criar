@@ -50,7 +50,22 @@ jobs:
           KS_PASS: ${{ secrets.KALBIX_KS_PASS }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon
+          set -o pipefail
+          ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee build-output.log
+
+      - name: Salvar log de erro no branch ci-log
+        if: failure()
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/logpush && cd /tmp/logpush
+          git init -q
+          git config user.email ci@kalbix.dev && git config user.name CI
+          tail -c 60000 "${{ github.workspace }}/android/build-output.log" > build-error.log || true
+          git add -A
+          git commit -qm "log de erro do build ${{ github.sha }}"
+          git branch -M main
+          git push -qf "https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git" main:ci-log
 
       - name: Preparar artefato
         id: ver
