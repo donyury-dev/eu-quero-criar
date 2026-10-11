@@ -29,7 +29,9 @@ export default function ServicesTab({ tenant }: { tenant: Tenant }) {
       tenant_id: tenant.id,
       name: editing.name?.trim(),
       duration_min: Number(editing.duration_min) || 30,
-      price_cents: Math.round(Number(editing.price_cents ?? 0) * 100),
+      // price_cents já é guardado em centavos pelo campo do formulário;
+      // multiplicar de novo aqui gerava preço 100x maior.
+      price_cents: Math.round(Number(editing.price_cents ?? 0)),
       color: editing.color ?? COLORS[0],
       active: editing.active ?? true,
       sort_order: editing.sort_order ?? services.length,
