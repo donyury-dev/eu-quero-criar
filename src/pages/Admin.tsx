@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import {
   CalendarDays,
   Scissors,
@@ -60,7 +60,14 @@ type TabKey = (typeof TABS)[number]['key'];
 export default function Admin() {
   const { user, profile, loading, signOut } = useAuth();
   const [tenant, setTenant] = useState<Tenant | null>(null);
-  const [tab, setTab] = useState<TabKey>('agenda');
+  // Aba controlada pela URL (/#/admin?tab=...) para deep-link do menu do APK.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const paramTab = searchParams.get('tab');
+  const tab: TabKey = TABS.some((t) => t.key === paramTab)
+    ? (paramTab as TabKey)
+    : 'agenda';
+  const setTab = (k: TabKey) =>
+    setSearchParams(k === 'agenda' ? {} : { tab: k }, { replace: true });
   const [sub, setSub] = useState<Subscription | null>(null);
   const [subLoaded, setSubLoaded] = useState(false);
 

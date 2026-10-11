@@ -129,7 +129,20 @@ public class MainActivity extends AppCompatActivity {
             showAbout();
             return;
         }
+        String panelTab = panelTabFor(id);
+        if (panelTab != null) {
+            if (id == currentNavId) return;
+            currentNavId = id;
+            contentFrame.removeAllViews();
+            contentFrame.addView(panelView);
+            // Deep-link para a aba do painel (Admin.tsx lê ?tab= da URL).
+            panelView.loadUrl(PANEL_URL + "#/admin?tab=" + panelTab);
+            toolbar.setTitle("KalBix — " + item.getTitle());
+            navView.setCheckedItem(id);
+            return;
+        }
         if (id == currentNavId) return;
+        int previousNavId = currentNavId;
         currentNavId = id;
 
         contentFrame.removeAllViews();
@@ -150,11 +163,30 @@ public class MainActivity extends AppCompatActivity {
         } else if (id == R.id.nav_update) {
             downloadUpdate();
             // Volta para o item anterior visualmente
-            navView.setCheckedItem(currentNavId == R.id.nav_editor ? R.id.nav_editor : R.id.nav_agenda);
+            navView.setCheckedItem(previousNavId);
+            currentNavId = previousNavId;
             return;
         }
 
         navView.setCheckedItem(id);
+    }
+
+    /** Mapeia itens do menu para as abas internas do painel (/?tab=...). */
+    private String panelTabFor(int id) {
+        switch (id) {
+            case R.id.nav_tab_services: return "services";
+            case R.id.nav_tab_team: return "team";
+            case R.id.nav_tab_hours: return "hours";
+            case R.id.nav_tab_branding: return "branding";
+            case R.id.nav_tab_finance: return "finance";
+            case R.id.nav_tab_crm: return "crm";
+            case R.id.nav_tab_stock: return "stock";
+            case R.id.nav_tab_club: return "club";
+            case R.id.nav_tab_subscription: return "subscription";
+            case R.id.nav_tab_support: return "support";
+            case R.id.nav_tab_account: return "account";
+            default: return null;
+        }
     }
 
     private void showAbout() {

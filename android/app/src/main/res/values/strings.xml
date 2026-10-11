@@ -8,6 +8,17 @@
     <string name="update_downloading">Baixando atualização…</string>
     <string name="menu_update">Atualizar app</string>
     <string name="menu_sobre">Sobre o app</string>
+    <string name="menu_tab_services">Serviços</string>
+    <string name="menu_tab_team">Equipe</string>
+    <string name="menu_tab_hours">Horários</string>
+    <string name="menu_tab_branding">Personalização</string>
+    <string name="menu_tab_finance">Financeiro</string>
+    <string name="menu_tab_crm">Clientes</string>
+    <string name="menu_tab_stock">Estoque</string>
+    <string name="menu_tab_club">Clube</string>
+    <string name="menu_tab_subscription">Assinatura</string>
+    <string name="menu_tab_support">Suporte</string>
+    <string name="menu_tab_account">Minha conta</string>
     <string name="sobre_message">KalBix — Agenda &amp; Editor\n\nVersão %1$s (build %2$d)</string>
     <string name="drawer_open">Abrir menu</string>
     <string name="drawer_close">Fechar menu</string>
