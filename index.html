@@ -20,6 +20,10 @@
       if (/KalBixApp\//i.test(navigator.userAgent)) {
         document.body.classList.add('in-kalbix-app');
       }
+      // O app usa HashRouter: rotas em path puro (ex.: /editor) precisam virar #/editor
+      if (location.pathname === '/editor' && !location.hash) {
+        location.replace('/#/editor');
+      }
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>

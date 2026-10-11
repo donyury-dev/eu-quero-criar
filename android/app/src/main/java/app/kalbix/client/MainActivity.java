@@ -58,7 +58,7 @@ import java.nio.charset.StandardCharsets;
 public class MainActivity extends AppCompatActivity {
 
     private static final String PANEL_URL = "https://kalbix.vercel.app/";
-    private static final String EDITOR_LAUNCH_URL = "https://kalbix.vercel.app/editor";
+    private static final String EDITOR_LAUNCH_URL = "https://kalbix.vercel.app/#/editor";
     private static final String VERSION_URL = "https://kalbix.vercel.app/app-version.json";
     private static final String HOST_PANEL = "kalbix.vercel.app";
     private static final String HOST_EDITOR = "kalbix-editor.onrender.com";
