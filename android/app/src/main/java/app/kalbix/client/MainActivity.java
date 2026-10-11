@@ -173,20 +173,18 @@ public class MainActivity extends AppCompatActivity {
 
     /** Mapeia itens do menu para as abas internas do painel (/?tab=...). */
     private String panelTabFor(int id) {
-        switch (id) {
-            case R.id.nav_tab_services: return "services";
-            case R.id.nav_tab_team: return "team";
-            case R.id.nav_tab_hours: return "hours";
-            case R.id.nav_tab_branding: return "branding";
-            case R.id.nav_tab_finance: return "finance";
-            case R.id.nav_tab_crm: return "crm";
-            case R.id.nav_tab_stock: return "stock";
-            case R.id.nav_tab_club: return "club";
-            case R.id.nav_tab_subscription: return "subscription";
-            case R.id.nav_tab_support: return "support";
-            case R.id.nav_tab_account: return "account";
-            default: return null;
-        }
+        if (id == R.id.nav_tab_services) return "services";
+        if (id == R.id.nav_tab_team) return "team";
+        if (id == R.id.nav_tab_hours) return "hours";
+        if (id == R.id.nav_tab_branding) return "branding";
+        if (id == R.id.nav_tab_finance) return "finance";
+        if (id == R.id.nav_tab_crm) return "crm";
+        if (id == R.id.nav_tab_stock) return "stock";
+        if (id == R.id.nav_tab_club) return "club";
+        if (id == R.id.nav_tab_subscription) return "subscription";
+        if (id == R.id.nav_tab_support) return "support";
+        if (id == R.id.nav_tab_account) return "account";
+        return null;
     }
 
     private void showAbout() {
