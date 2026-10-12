@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   Check,
   BadgeCheck,
+  MessageCircle,
 } from 'lucide-react';
 import { supabase, DEMO_TENANT_ID } from '../lib/supabase';
 import type { BusinessHour, Professional, Service, Tenant, Appointment, ProfessionalService, ScheduleException } from '../lib/types';
@@ -284,9 +285,10 @@ export default function Booking({ demo = false }: { demo?: boolean }) {
                 href={`https://wa.me/55${tenant.whatsapp.replace(/\D/g, '')}`}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-1 underline underline-offset-2 hover:text-white"
+                className="mt-3 inline-flex items-center gap-2 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-sm px-5 py-2.5 shadow-lg shadow-emerald-500/30 transition-colors"
               >
-                <Clock size={13} /> WhatsApp
+                <MessageCircle size={17} />
+                Falar no WhatsApp
               </a>
             )}
           </div>

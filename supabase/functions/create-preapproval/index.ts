@@ -57,7 +57,13 @@ Deno.serve(async (req) => {
       throw new Error('Você já possui uma assinatura em andamento.');
     }
 
-    const priceCents = sub?.price_cents ?? 4990;
+    const body = await req.json().catch(() => ({}));
+    const PLANS: Record<string, { months: number; totalCents: number; label: string }> = {
+      monthly: { months: 1, totalCents: 4990, label: 'Mensal' },
+      quarterly: { months: 3, totalCents: 11976, label: 'Trimestral' }, // 20% off
+      annual: { months: 12, totalCents: 479040, label: 'Anual' }, // 20% off
+    };
+    const plan = PLANS[body?.plan] ?? PLANS.monthly;
 
     // Cria a assinatura no Mercado Pago
     const mpRes = await fetch('https://api.mercadopago.com/preapproval', {
@@ -67,13 +73,13 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        reason: 'KalBix Agenda — Plano Mensal',
+        reason: `KalBix Agenda — Plano ${plan.label}`,
         external_reference: tenantId,
         payer_email: user.email,
         auto_recurring: {
-          frequency: 1,
+          frequency: plan.months,
           frequency_type: 'months',
-          transaction_amount: Math.round(priceCents) / 100,
+          transaction_amount: Math.round(plan.totalCents) / 100,
           currency_id: 'BRL',
         },
         back_url: 'https://kalbix.vercel.app/admin',
@@ -85,10 +91,18 @@ Deno.serve(async (req) => {
       throw new Error(`Mercado Pago: ${mpData.message ?? 'falha ao criar assinatura'}`);
     }
 
-    // Guarda o id da assinatura
+    // Guarda o id da assinatura e o plano escolhido
     await supabaseAdmin
       .from('subscriptions')
-      .update({ provider_sub_id: mpData.id, provider: 'mercopago', updated_at: new Date().toISOString() })
+      .update({
+        provider_sub_id: mpData.id,
+        provider: 'mercopago',
+        plan: body?.plan in PLANS ? body.plan : 'monthly',
+        price_cents: Math.round(plan.totalCents),
+        status: 'active',
+        current_period_end: new Date(Date.now() + plan.months * 30 * 86_400_000).toISOString(),
+        updated_at: new Date().toISOString(),
+      })
       .eq('tenant_id', tenantId);
 
     return new Response(JSON.stringify({ init_point: mpData.init_point }), {

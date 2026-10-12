@@ -39,6 +39,15 @@ type EditorAccess = {
   manual_revoked: boolean;
 };
 type Row = { tenant: Tenant; sub: Subscription | null; editor: EditorAccess | null; appts: number };
+
+// Status de exibição: se o tenant ainda não tem linha de assinatura (antes do
+// backfill do SQL 017), inferimos pelo tempo de criação — evita "Cancelada" indevido.
+function rowStatus(row: Row): Subscription['status'] {
+  if (row.sub) return effectiveSubStatus(row.sub);
+  const created = (row.tenant as Tenant & { created_at?: string }).created_at;
+  const age = created ? Date.now() - new Date(created).getTime() : Infinity;
+  return age < 7 * 86_400_000 ? 'trialing' : 'cancelled';
+}
 type TicketRow = SupportTicket & { tenant_name: string };
 
 const TICKET_STATUS: Record<SupportTicket['status'], { label: string; cls: string }> = {
@@ -228,7 +237,7 @@ function ClientsTab() {
       ) : (
         <div className="grid gap-3">
           {filtered.map((row) => {
-            const st = effectiveSubStatus(row.sub ?? ({ status: 'cancelled', trial_ends_at: null } as Subscription));
+            const st = rowStatus(row);
             const meta = SUB_STATUS_META[st];
             return (
               <div key={row.tenant.id} className="card p-4 flex flex-wrap items-center gap-3">
@@ -576,8 +585,8 @@ function FinanceTab() {
   }, [load]);
 
   const paying = rows.filter((r) => r.sub?.status === 'active');
-  const trialing = rows.filter((r) => effectiveSubStatus(r.sub ?? ({ status: 'cancelled', trial_ends_at: null } as Subscription)) === 'trialing');
-  const overdue = rows.filter((r) => ['past_due', 'suspended'].includes(effectiveSubStatus(r.sub ?? ({ status: 'cancelled', trial_ends_at: null } as Subscription))));
+  const trialing = rows.filter((r) => rowStatus(r) === 'trialing');
+  const overdue = rows.filter((r) => ['past_due', 'suspended'].includes(rowStatus(r)));
   const mrr = paying.reduce((sum, r) => sum + (r.sub?.price_cents ?? 0), 0);
 
   return (

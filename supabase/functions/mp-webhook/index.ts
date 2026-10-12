@@ -96,18 +96,21 @@ async function handlePayment(paymentId: string, MP_TOKEN: string): Promise<Respo
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    // Estende 30 dias a partir de agora (ou do fim do período atual, se ainda válido)
+    // Estende o período conforme o plano (30/90/365 dias), a partir de agora
+    // ou do fim do período atual, se ainda válido (renovação antecipada).
     const { data: sub } = await supabaseAdmin
       .from('subscriptions')
-      .select('current_period_end')
+      .select('current_period_end, plan')
       .eq('tenant_id', tenantId)
       .maybeSingle();
+    const planDays: Record<string, number> = { monthly: 30, quarterly: 90, annual: 365 };
+    const days = planDays[sub?.plan ?? 'monthly'] ?? 30;
     const now = new Date();
     const base =
       sub?.current_period_end && new Date(sub.current_period_end) > now
         ? new Date(sub.current_period_end)
         : now;
-    const end = new Date(base.getTime() + 30 * 86_400_000);
+    const end = new Date(base.getTime() + days * 86_400_000);
 
     await supabaseAdmin
       .from('subscriptions')
