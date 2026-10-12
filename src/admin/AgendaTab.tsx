@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, X, Check, Ban, UserX, RotateCcw, Loader2, MessageCircle } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight, Plus, X, Check, Ban, UserX, RotateCcw, Loader2, MessageCircle, Clock, Save } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Appointment, Professional, Service, Tenant, ProfessionalService, BusinessHour, ScheduleException } from '../lib/types';
 import { computeSlots } from '../lib/slots';
@@ -46,6 +46,10 @@ export default function AgendaTab({ tenant }: { tenant: Tenant }) {
   const [profServices, setProfServices] = useState<ProfessionalService[]>([]);
   const [hours, setHours] = useState<BusinessHour[]>([]);
   const [exceptions, setExceptions] = useState<ScheduleException[]>([]);
+  // Almoço variável: pausa do dia selecionado (exceção pontual da agenda).
+  const [breakStart, setBreakStart] = useState('');
+  const [breakEnd, setBreakEnd] = useState('');
+  const [savingBreak, setSavingBreak] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
@@ -78,6 +82,48 @@ export default function AgendaTab({ tenant }: { tenant: Tenant }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Exceção do dia selecionado + base semanal daquele weekday.
+  const dayEx = exceptions.find((e) => e.date === date) ?? null;
+  const baseHours = useMemo(
+    () => hours.find((x) => x.professional_id === null && x.weekday === weekdayOf(date)) ?? null,
+    [hours, date]
+  );
+
+  // Sincroniza os campos de pausa ao trocar de dia.
+  useEffect(() => {
+    setBreakStart(dayEx?.break_start?.slice(0, 5) ?? baseHours?.break_start?.slice(0, 5) ?? '');
+    setBreakEnd(dayEx?.break_end?.slice(0, 5) ?? baseHours?.break_end?.slice(0, 5) ?? '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, exceptions.length, hours.length]);
+
+  async function saveBreak(clear: boolean) {
+    setSavingBreak(true);
+    const payload = {
+      tenant_id: tenant.id,
+      date,
+      closed: false,
+      start_time: dayEx?.start_time ?? baseHours?.start_time ?? '09:00',
+      end_time: dayEx?.end_time ?? baseHours?.end_time ?? '19:00',
+      break_start: clear || !breakStart ? null : breakStart,
+      break_end: clear || !breakEnd ? null : breakEnd,
+    };
+    await supabase
+      .from('schedule_exceptions')
+      .upsert(payload, { onConflict: 'tenant_id,date' });
+    const { data } = await supabase
+      .from('schedule_exceptions')
+      .select('*')
+      .eq('tenant_id', tenant.id);
+    setExceptions(data ?? []);
+    setSavingBreak(false);
+  }
+
+  async function removeDayException() {
+    if (!dayEx) return;
+    await supabase.from('schedule_exceptions').delete().eq('id', dayEx.id);
+    setExceptions((prev) => prev.filter((e) => e.id !== dayEx.id));
+  }
 
   async function setStatus(appt: Appointment, status: Appointment['status']) {
     setAppointments((prev) => prev.map((a) => (a.id === appt.id ? { ...a, status } : a)));
@@ -114,6 +160,54 @@ export default function AgendaTab({ tenant }: { tenant: Tenant }) {
             <Plus size={14} /> Novo
           </button>
         </div>
+      </div>
+
+      {/* Pausa/almoço deste dia — horários de almoço variáveis, dia a dia */}
+      <div className="card px-4 py-3 mb-4 flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+          <Clock size={13} className="text-slate-400" /> Pausa deste dia
+        </span>
+        <input
+          type="time"
+          className="input !w-28 text-xs"
+          value={breakStart}
+          onChange={(e) => setBreakStart(e.target.value)}
+        />
+        <span className="text-slate-400 text-xs">até</span>
+        <input
+          type="time"
+          className="input !w-28 text-xs"
+          value={breakEnd}
+          onChange={(e) => setBreakEnd(e.target.value)}
+        />
+        <button
+          onClick={() => saveBreak(false)}
+          disabled={savingBreak}
+          className="btn-accent text-[11px] px-3 py-1.5 flex items-center gap-1 disabled:opacity-50"
+        >
+          {savingBreak ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+          Salvar
+        </button>
+        <button
+          onClick={() => saveBreak(true)}
+          disabled={savingBreak}
+          className="text-[11px] px-3 py-1.5 rounded-full border border-slate-200 hover:border-slate-400 text-slate-500 disabled:opacity-50"
+        >
+          Sem pausa
+        </button>
+        {dayEx && (
+          <span className="text-[11px] flex items-center gap-1.5 ml-auto">
+            <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
+              dia com horário especial
+            </span>
+            <button
+              onClick={removeDayException}
+              className="underline underline-offset-2 text-slate-400 hover:text-rose-500"
+            >
+              voltar ao padrão
+            </button>
+          </span>
+        )}
       </div>
 
       {loading ? (
