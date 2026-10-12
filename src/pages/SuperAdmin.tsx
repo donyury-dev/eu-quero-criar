@@ -8,6 +8,7 @@ import {
   KeyRound,
   LifeBuoy,
   Loader2,
+  LogOut,
   RefreshCw,
   Send,
   ShieldCheck,
@@ -57,7 +58,7 @@ const TICKET_STATUS: Record<SupportTicket['status'], { label: string; cls: strin
 };
 
 export default function SuperAdmin() {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, signOut } = useAuth();
   const [tab, setTab] = useState<'clients' | 'access' | 'finance' | 'support'>('clients');
   const isSuper = profile?.role === 'superadmin';
 
@@ -93,6 +94,12 @@ export default function SuperAdmin() {
           <Link to="/admin" className="text-xs text-white/60 hover:text-white underline underline-offset-2">
             Meu painel
           </Link>
+          <button
+            onClick={signOut}
+            className="text-xs bg-white/10 hover:bg-white/20 text-white flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
+          >
+            <LogOut size={14} /> Sair
+          </button>
         </div>
       </header>
 
