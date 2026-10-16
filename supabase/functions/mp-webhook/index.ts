@@ -90,36 +90,52 @@ async function handlePayment(paymentId: string, MP_TOKEN: string): Promise<Respo
     if (!mpRes.ok || !pay?.external_reference) return new Response('ok');
     if (pay.status !== 'approved') return new Response('ok');
 
-    const tenantId: string = pay.external_reference;
+    const externalRef: string = pay.external_reference;
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
-
-    // Estende o período conforme o plano (30/90/365 dias), a partir de agora
-    // ou do fim do período atual, se ainda válido (renovação antecipada).
-    const { data: sub } = await supabaseAdmin
-      .from('subscriptions')
-      .select('current_period_end, plan')
-      .eq('tenant_id', tenantId)
-      .maybeSingle();
-    const planDays: Record<string, number> = { monthly: 30, quarterly: 90, annual: 365 };
-    const days = planDays[sub?.plan ?? 'monthly'] ?? 30;
     const now = new Date();
-    const base =
-      sub?.current_period_end && new Date(sub.current_period_end) > now
-        ? new Date(sub.current_period_end)
-        : now;
-    const end = new Date(base.getTime() + days * 86_400_000);
 
+    // Aluguel do editor: external_reference "<tenant_id>|editor"
+    if (externalRef.endsWith('|editor')) {
+      const tenantId = externalRef.replace(/\|editor$/, '');
+      const { data: access } = await supabaseAdmin
+        .from('editor_access')
+        .select('included_until, plan')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      const current = access?.included_until ? new Date(`${access.included_until}T23:59:59`) : null;
+      const base = current && current > now ? current : now;
+      const end = new Date(base.getTime() + 30 * 86_400_000);
+      const { error: upsertErr } = await supabaseAdmin
+        .from('editor_access')
+        .upsert(
+          {
+            tenant_id: tenantId,
+            plan: access?.plan ?? 'agenda',
+            included_until: end.toISOString().slice(0, 10),
+            manual_revoked: false,
+            updated_at: now.toISOString(),
+          },
+          { onConflict: 'tenant_id' },
+        );
+      if (upsertErr) console.error('editor_access upsert:', upsertErr.message);
+      return new Response('ok');
+    }
+
+    // Licença permanente da agenda: acesso vitalício
+    const tenantId: string = externalRef;
     await supabaseAdmin
       .from('subscriptions')
       .upsert(
         {
           tenant_id: tenantId,
           provider: 'mercopago',
+          plan: 'permanente',
+          price_cents: 4990,
           status: 'active',
-          current_period_end: end.toISOString(),
+          current_period_end: new Date(now.getTime() + 100 * 365 * 86_400_000).toISOString(),
           updated_at: now.toISOString(),
         },
         { onConflict: 'tenant_id' },

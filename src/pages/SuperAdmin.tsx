@@ -261,7 +261,7 @@ function ClientsTab() {
                   <p className="text-[11px] text-slate-400 mt-0.5">
                     {CATEGORY_LABELS[row.tenant.category] ?? row.tenant.category} · /{row.tenant.slug}
                     {row.tenant.city ? ` · ${row.tenant.city}` : ''} · {row.appts} agendamentos no mês
-                    {row.sub ? ` · ${fmtMoney(row.sub.price_cents)}/mês` : ''}
+                    {row.sub ? ` · ${fmtMoney(row.sub.price_cents)} (licença)` : ''}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -600,11 +600,11 @@ function FinanceTab() {
     <div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <div className="card p-4">
-          <p className="text-[11px] text-slate-400">Receita mensal (MRR)</p>
+          <p className="text-[11px] text-slate-400">Receita com licenças</p>
           <p className="text-2xl font-bold text-emerald-600">{fmtMoney(mrr)}</p>
         </div>
         <div className="card p-4">
-          <p className="text-[11px] text-slate-400">Assinantes pagantes</p>
+          <p className="text-[11px] text-slate-400">Licenças ativas</p>
           <p className="text-2xl font-bold">{paying.length}</p>
         </div>
         <div className="card p-4">
@@ -623,7 +623,7 @@ function FinanceTab() {
         </div>
       ) : paying.length === 0 ? (
         <div className="card p-8 text-center text-sm text-slate-500">
-          Nenhum assinante pagante ainda. Quando um cliente assinar pelo Mercado Pago, a receita aparece aqui.
+          Nenhuma licença vendida ainda. Quando um cliente comprar a licença permanente pelo Mercado Pago, a receita aparece aqui.
         </div>
       ) : (
         <div className="card overflow-hidden">
@@ -632,7 +632,7 @@ function FinanceTab() {
               <tr className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-400">
                 <th className="px-4 py-2.5 font-semibold">Estabelecimento</th>
                 <th className="px-4 py-2.5 font-semibold">Plano</th>
-                <th className="px-4 py-2.5 font-semibold text-right">Mensalidade</th>
+                <th className="px-4 py-2.5 font-semibold text-right">Licença</th>
               </tr>
             </thead>
             <tbody>

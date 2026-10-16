@@ -45,21 +45,23 @@ Deno.serve(async (req) => {
     if (!profile?.tenant_id) throw new Error('Conta sem estabelecimento vinculado.');
     const tenantId = profile.tenant_id;
 
-    const { data: sub } = await supabaseAdmin
-      .from('subscriptions')
-      .select('price_cents')
-      .eq('tenant_id', tenantId)
-      .maybeSingle();
-    const priceCents = sub?.price_cents ?? 4990;
-
-    // mode=checkout → abre o checkout do Mercado Pago (débito, boleto etc.)
+    // product='editor' → aluguel mensal do editor (R$ 29,90/mês)
+    // padrão → licença permanente da agenda (R$ 49,90, pagamento único)
     let mode = 'pix';
+    let product = 'agenda';
     try {
       const body = await req.json();
       if (body?.mode) mode = String(body.mode);
+      if (body?.product) product = String(body.product);
     } catch {
-      // corpo vazio → pix
+      // corpo vazio → pix da agenda
     }
+    const isEditor = product === 'editor';
+    const priceCents = isEditor ? 2990 : 4990;
+    const externalRef = isEditor ? `${tenantId}|editor` : tenantId;
+    const itemTitle = isEditor
+      ? 'KalBix Editor — Aluguel mensal (30 dias)'
+      : 'KalBix Agenda — Licença Permanente';
 
     if (mode === 'checkout') {
       const prefRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
@@ -71,18 +73,15 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           items: [
             {
-              title: 'KalBix Agenda — Plano Mensal (30 dias)',
+              title: itemTitle,
               quantity: 1,
               unit_price: Math.round(priceCents) / 100,
               currency_id: 'BRL',
             },
           ],
-          external_reference: tenantId,
+          external_reference: externalRef,
           back_url: 'https://kalbix.vercel.app/admin',
           notification_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/mp-webhook`,
-          payment_methods: {
-            excluded_payment_types: [{ id: 'credit_card' }],
-          },
         }),
       });
       const pref = await prefRes.json();
@@ -103,9 +102,11 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         transaction_amount: Math.round(priceCents) / 100,
-        description: 'KalBix Agenda — Plano Mensal (30 dias via Pix)',
+        description: isEditor
+          ? 'KalBix Editor — Aluguel mensal (30 dias via Pix)'
+          : 'KalBix Agenda — Licença Permanente (Pix)',
         payment_method_id: 'pix',
-        external_reference: tenantId,
+        external_reference: externalRef,
         notification_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/mp-webhook`,
         payer: { email: user.email },
       }),
